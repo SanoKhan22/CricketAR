@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cricket AR - Virtual Batting</title>
+    <meta name="description" content="Browser-based AR cricket game using hand gestures to bat">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <!-- Import Map for ES Modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+        }
+    }
+    </script>
+
+    <!-- MediaPipe for hand tracking (these are not ES modules) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Loading Screen -->
+        <div id="loading-screen">
+            <div class="loader">
+                <div class="cricket-ball"></div>
+                <p>Loading Cricket AR...</p>
+                <p class="loading-status">Initializing camera...</p>
+            </div>
+        </div>
+
+        <!-- Main Game Container -->
+        <div id="game-container">
+            <!-- Camera View (Left Panel) -->
+            <div id="camera-panel">
+                <video id="camera-feed" autoplay playsinline></video>
+                <canvas id="camera-overlay"></canvas>
+                <div id="ball-trajectory-overlay"></div>
+                <div id="hand-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Detecting hands...</span>
+                </div>
+            </div>
+
+            <!-- 3D Field View (Right Panel) -->
+            <div id="field-panel">
+                <canvas id="field-canvas"></canvas>
+                <div id="shot-result"></div>
+            </div>
+        </div>
+
+        <!-- Bowling Controls -->
+        <div id="controls-panel">
+            <div class="control-group">
+                <label>Speed</label>
+                <select id="speed-control">
+                    <option value="slow">Slow (80 km/h)</option>
+                    <option value="medium" selected>Medium (110 km/h)</option>
+                    <option value="fast">Fast (140 km/h)</option>
+                    <option value="express">Express (150+ km/h)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Line</label>
+                <select id="line-control">
+                    <option value="outside-off">Outside Off</option>
+                    <option value="off">Off Stump</option>
+                    <option value="middle" selected>Middle</option>
+                    <option value="leg">Leg Stump</option>
+                    <option value="outside-leg">Outside Leg</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Length</label>
+                <select id="length-control">
+                    <option value="short">Short</option>
+                    <option value="short-of-good">Short of Good</option>
+                    <option value="good" selected>Good Length</option>
+                    <option value="full">Full</option>
+                    <option value="yorker">Yorker</option>
+                </select>
+            </div>
+
+            <button id="random-btn" class="control-btn" title="Random delivery">
+                🎲
+            </button>
+
+            <button id="bowl-btn" class="control-btn primary">
+                🏏 Bowl
+            </button>
+        </div>
+
+        <!-- Score Display -->
+        <div id="score-display">
+            <div class="score-item">
+                <span class="label">Runs</span>
+                <span id="runs" class="value">0</span>
+            </div>
+            <div class="score-item">
+                <span class="label">Balls</span>
+                <span id="balls" class="value">0</span>
+            </div>
+            <div class="score-item">
+                <span class="label">Last Shot</span>
+                <span id="last-shot" class="value">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
