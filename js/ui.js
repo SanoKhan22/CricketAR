@@ -37,6 +37,7 @@ export class UI {
             runs: document.getElementById('runs'),
             balls: document.getElementById('balls'),
             lastShot: document.getElementById('last-shot'),
+            swingSpeed: document.getElementById('swing-speed'),
 
             // Status
             handStatus: document.getElementById('hand-status'),
@@ -150,6 +151,24 @@ export class UI {
     updateScore(runs, balls) {
         this.elements.runs.textContent = runs;
         this.elements.balls.textContent = balls;
+    }
+
+    /**
+     * Update swing speed display
+     */
+    updateSwingSpeed(speed) {
+        if (this.elements.swingSpeed) {
+            this.elements.swingSpeed.textContent = speed.toFixed(1);
+        }
+    }
+
+    /**
+     * Update distance display during flight
+     */
+    updateDistance(distance) {
+        // Optional: Update a distance display if you have one
+        // For now, we can just log it or update a debug element
+        // console.log('Distance:', distance.toFixed(1));
     }
 
     /**

@@ -137,18 +137,6 @@ export class Renderer {
 
         // Create wickets at both ends
         this.createWickets();
-
-        // DEBUG: Add reference cube at origin to verify scene is rendering
-        const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-        const cubeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xff00ff,  // Magenta - very visible
-            emissive: 0x440044
-        });
-        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-        cube.position.set(0, 1, 0);  // At origin, 1m above ground
-        cube.name = 'debugCube';
-        this.scene.add(cube);
-        console.log('🎲 Debug cube added at origin (0, 1, 0) - should be VERY visible!');
     }
 
     /**

@@ -46,7 +46,7 @@ export class Bat {
         this.handleMesh = null;
 
         // Position and rotation
-        this.position = { x: 0, y: 0, z: 12 }; // In front of wickets
+        this.position = { x: 0, y: 0, z: 8 }; // In front of wickets (Z=10)
         this.rotation = { x: 0, y: 0, z: 0 };
 
         // For collision detection
@@ -57,7 +57,7 @@ export class Bat {
         this.previousTime = Date.now();
         this.swingVelocity = { x: 0, y: 0, z: 0 };
         this.isSwinging = false;
-        this.swingThreshold = 5.0; // units per second
+        this.swingThreshold = 2.0; // Lower threshold for easier hit detection
         this.currentHandAngle = 0;
 
         // Visual guides (Phase 2)
@@ -220,7 +220,7 @@ export class Bat {
         // Map to 3D world coordinates
         const batX = (0.5 - palmCenter.x) * 6; // Horizontal (inverted for mirror)
         const batY = (1 - palmCenter.y) * 2.5 + 0.9; // Vertical + 0.9m offset
-        const batZ = 12; // Fixed Z position (in front of wickets)
+        const batZ = 8; // Fixed Z position (in front of wickets)
 
         // DIRECT position update (no smoothing)
         this.batGroup.position.x = batX;
@@ -376,33 +376,145 @@ export class Bat {
     checkCollision(ballPosition, ballRadius = 0.3) {
         if (!this.batGroup) return null;
 
-        // === STEP 3: Manual Distance Collision ===
+        // === REVISED COLLISION DETECTION ===
 
-        // Calculate distance between ball and bat
+        // Calculate per-axis distances
         const dx = ballPosition.x - this.batGroup.position.x;
         const dy = ballPosition.y - this.batGroup.position.y;
-        const dz = ballPosition.z - this.batGroup.position.z;
+        const dz = ballPosition.z - this.batGroup.position.z; // Bat at Z=8
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        // Collision threshold
-        const collisionDistance = 0.5;
+        // Collision threshold - 1.0m to account for hand positioning offset
+        // Ball comes at X~0.2 but bat can be at X=-1 to X=1 depending on hand
+        const collisionDistance = 1.0;
 
-        // Check if collision AND bat is swinging
-        if (distance < collisionDistance && this.isSwinging) {
-            // Determine which zone was hit
-            const zone = this.determineHitZone(ballPosition);
+        // Log when ball is near bat Z (within 1.5m)
+        if (Math.abs(dz) < 1.5) {
+            console.log(`🎯 Collision: dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}, dz=${dz.toFixed(2)}, dist=${distance.toFixed(2)}m, threshold=${collisionDistance}m`);
+        }
+
+        // Check collision
+        if (distance < collisionDistance) {
+            // === TIMING QUALITY (based on Z precision) ===
+            const absDz = Math.abs(dz);
+            let timingQuality, timingMultiplier;
+
+            if (absDz <= 0.15) {
+                timingQuality = 'PERFECT';
+                timingMultiplier = 1.2;
+            } else if (absDz <= 0.25) {
+                timingQuality = 'Good';
+                timingMultiplier = 1.0;
+            } else if (absDz <= 0.35) {
+                timingQuality = 'Okay';
+                timingMultiplier = 0.7;
+            } else {
+                timingQuality = 'Poor';
+                timingMultiplier = 0.4;
+            }
+
+            // Calculate bat speed in m/s
+            // swingVelocity is per-frame, multiply by ~25 and CAP at 20 m/s max
+            const rawSpeed = this.swingVelocity ? Math.sqrt(
+                this.swingVelocity.x ** 2 +
+                this.swingVelocity.y ** 2 +
+                this.swingVelocity.z ** 2
+            ) * 25 : 0;
+
+            // Cap at realistic human maximum (20 m/s = 72 km/h)
+            const batSpeed = Math.min(rawSpeed, 20);
+
+            // Speed factor based on bat speed
+            let speedFactor = 0.2; // Block
+            if (batSpeed >= 15) speedFactor = 1.2;      // Maximum
+            else if (batSpeed >= 10) speedFactor = 1.0; // Power
+            else if (batSpeed >= 6) speedFactor = 0.8;  // Attacking
+            else if (batSpeed >= 3) speedFactor = 0.5;  // Placement
+
+            // Determine zone
+            const zoneInfo = this.determineDetailedZone(ballPosition);
+
+            console.log(`🏏 HIT! Zone=${zoneInfo.name}, Speed=${batSpeed.toFixed(1)}m/s, Timing=${timingQuality} (${timingMultiplier}x)`);
 
             return {
                 hit: true,
-                zone: zone,
-                effect: this.zoneEffects[zone],
+                zone: zoneInfo.name,
+                verticalZone: zoneInfo.vertical,
+                horizontalZone: zoneInfo.horizontal,
+                zoneMultiplier: zoneInfo.multiplier,
+                deflection: zoneInfo.deflection,
+                batSpeed: batSpeed,
+                speedFactor: speedFactor,
+                timingQuality: timingQuality,
+                timingMultiplier: timingMultiplier,
+                effect: this.zoneEffects[zoneInfo.vertical] || this.zoneEffects.middle,
                 batPosition: this.batGroup.position.clone(),
                 batRotation: this.batGroup.rotation.clone(),
-                swingVelocity: this.swingVelocity // Include swing velocity for Step 5
+                swingVelocity: this.swingVelocity
             };
         }
 
         return null;
+    }
+
+    /**
+     * Determine detailed 15-zone hit matrix
+     * Vertical: Handle (15%), Shoulder (15%), Middle (40%), Lower (20%), Toe (10%)
+     * Horizontal: Left Edge (8%), Center (84%), Right Edge (8%)
+     */
+    determineDetailedZone(ballPosition) {
+        const localPos = ballPosition.clone();
+        localPos.sub(this.batGroup.position);
+
+        // --- Horizontal Zones (Left Edge, Center, Right Edge) ---
+        const halfWidth = this.dimensions.bladeWidth / 2;
+        const edgeWidth = halfWidth * 0.16; // 8% each side
+        let horizontal = 'center';
+        let hMultiplier = 1.0;
+        let deflection = 0;
+
+        if (localPos.x < -halfWidth + edgeWidth) {
+            horizontal = 'left-edge';
+            hMultiplier = 0.4;
+            deflection = -0.5; // Deflect to leg side
+        } else if (localPos.x > halfWidth - edgeWidth) {
+            horizontal = 'right-edge';
+            hMultiplier = 0.4;
+            deflection = 0.5; // Deflect to off side
+        }
+
+        // --- Vertical Zones ---
+        const length = this.dimensions.totalLength;
+        const batBottom = -length / 2;
+        const relativeY = (localPos.y - batBottom) / length; // 0=bottom, 1=top
+
+        let vertical = 'middle';
+        let vMultiplier = 1.0;
+
+        if (relativeY > 0.85) {
+            vertical = 'handle';
+            vMultiplier = 0.1; // Almost no power
+        } else if (relativeY > 0.70) {
+            vertical = 'shoulder';
+            vMultiplier = 0.3; // Weak, pop-up
+        } else if (relativeY > 0.30) {
+            vertical = 'middle'; // Sweet spot!
+            vMultiplier = 1.0;
+        } else if (relativeY > 0.10) {
+            vertical = 'lower';
+            vMultiplier = 0.7;
+        } else {
+            vertical = 'toe';
+            vMultiplier = 0.4;
+        }
+
+        return {
+            name: `${vertical}-${horizontal}`,
+            vertical: vertical,
+            horizontal: horizontal,
+            multiplier: hMultiplier * vMultiplier,
+            deflection: deflection
+        };
     }
 
     /**
@@ -510,7 +622,7 @@ export class Bat {
      */
     reset() {
         if (this.batGroup) {
-            this.batGroup.position.set(0, 1.0, 12);
+            this.batGroup.position.set(0, 1.0, 10);
             this.batGroup.rotation.set(0, 0, Math.PI / 2);
         }
     }

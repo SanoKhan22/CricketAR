@@ -4,14 +4,14 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js';
-import { HandTracking } from './handTracking.js';
-import { Renderer } from './renderer.js';
-import { Physics } from './physics.js';
-import { Bowling } from './bowling.js';
-import { Batting } from './batting.js';
-import { Bat } from './bat.js'; // 3D cricket bat with zone detection
-import { UI } from './ui.js';
+import { Camera } from './camera.js?v=44';
+import { HandTracking } from './handTracking.js?v=44';
+import { Renderer } from './renderer.js?v=44';
+import { Physics } from './physics.js?v=44';
+import { Bowling } from './bowling.js?v=44';
+import { Batting } from './batting.js?v=44';
+import { Bat } from './bat.js?v=44'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=44';
 
 class CricketARGame {
     constructor() {
@@ -175,8 +175,6 @@ class CricketARGame {
                 this.shotDirection.x = (x - 0.5) * -3;
                 // Top = lofted, bottom = grounded
                 this.shotDirection.y = 1 - y;
-
-                this.handleHandHit(x, y);
             }
         });
 
@@ -442,11 +440,11 @@ class CricketARGame {
 
             // === STEP 5: Apply Hit with Swing Direction ===
 
-            // Get zone power multiplier
-            const zonePower = this.bat.zoneEffects[collision.zone].power;
+            // Get zone power from collision result (already resolved)
+            const zonePower = collision.effect?.power ?? collision.zoneMultiplier ?? 1.0;
 
             // Check for handle hit (no power)
-            if (zonePower === 0) {
+            if (zonePower < 0.15) {
                 this.ui.showShotResult('Handle! No shot');
                 console.log('🏏 Hit on HANDLE - no power');
                 return;
@@ -475,21 +473,39 @@ class CricketARGame {
             hitDirection.y /= mag;
             hitDirection.z /= mag;
 
-            // Power from swing speed and zone
-            const power = Math.min(swingSpeed / 5, 1) * zonePower;
+            // === NEW EXIT VELOCITY PHYSICS ===
+            const batSpeed = collision.batSpeed || 5;
+            const zoneMultiplier = collision.zoneMultiplier || 1.0;
+            const deflection = collision.deflection || 0;
+            const timingMultiplier = collision.timingMultiplier || 1.0;
+            const timingQuality = collision.timingQuality || 'Good';
 
-            // Apply hit using existing physics method
-            this.physics.hit(hitDirection, power);
+            // Get current bowl speed for momentum calculation
+            const bowlSpeed = this.currentBowlSpeed || 30;
 
-            // Show zone-specific result
-            const zoneDisplay = `${collision.zone.toUpperCase()}! Swing: ${swingSpeed.toFixed(1)}`;
+            // Get launch angle from shot type
+            const shot = this.batting.calculateShot(this.physics.getBallPosition());
+            const launchAngle = shot.launchAngle || 22;
+
+            // Apply hit using CORRECTED exit velocity physics
+            // Parameters: direction, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier
+            this.physics.hit(hitDirection, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier);
+
+            // Show hit message with timing quality
+            const zoneDisplay = `${collision.zone.toUpperCase()}! ${timingQuality} timing - ${batSpeed.toFixed(1)}m/s`;
             this.ui.showShotResult(zoneDisplay);
+
+            // Update persistent speed display
+            this.ui.updateSwingSpeed(batSpeed);
+
+            // Ensure delivery is NOT complete yet - wait for ball to land
+            this.deliveryComplete = false;
 
             // Show impact effect
             const camPanel = document.getElementById('camera-panel');
             this.ui.showImpactEffect(camPanel.clientWidth / 2, camPanel.clientHeight / 2);
 
-            console.log(`🏏 BAT HIT! Zone: ${collision.zone}, Swing: ${swingSpeed.toFixed(2)}, Power: ${power.toFixed(2)}`);
+            console.log(`🏏 BAT HIT! Zone: ${collision.zone}, Speed: ${batSpeed.toFixed(1)}m/s, Timing: ${timingQuality} (${timingMultiplier}x)`);
         }
     }
 
@@ -542,6 +558,9 @@ class CricketARGame {
         // Get bowling parameters
         const params = this.bowling.getDeliveryParams();
 
+        // Store bowl speed for hit calculation (momentum transfer)
+        this.currentBowlSpeed = params.speed;
+
         // Bowl the ball
         this.physics.bowl(params);
 
@@ -559,6 +578,7 @@ class CricketARGame {
      */
     checkForHit() {
         if (!this.physics.isInHittingZone()) return;
+        if (this.hasHitThisDelivery) return; // Prevent multiple hits
 
         const palmPosition = this.batting.handPosition;
         if (!palmPosition) return;
@@ -648,7 +668,54 @@ class CricketARGame {
         // Camera follows ball if hit
         if (this.hasHitThisDelivery) {
             this.renderer.followBall(ballPos);
+
+            // === Distance Tracking & Scoring ===
+            if (!this.deliveryComplete) {
+                const distance = this.physics.getDistanceFromStumps();
+
+                // Update UI with current distance
+                this.ui.updateDistance(distance);
+
+                // Check if ball crossed boundary or stopped
+                const crossedBoundary = this.physics.checkBoundary(distance);
+                const isStopped = this.physics.isBallStopped();
+
+                if (crossedBoundary || isStopped) {
+                    this.completeDelivery(distance);
+                }
+            }
         }
+    }
+
+    /**
+     * Complete delivery and calculate score
+     */
+    completeDelivery(distance) {
+        this.deliveryComplete = true;
+
+        // Calculate runs based on distance and bounce
+        const hasBounced = this.physics.hasBounced;
+        const runs = this.batting.calculateRuns('Hit', distance, hasBounced);
+
+        // Update score
+        this.score += runs;
+        this.ballsFaced++;
+        this.ui.updateScore(this.score, this.ballsFaced);
+
+        // Show result
+        let resultText = `${distance.toFixed(1)}m`;
+        if (runs === 4) resultText = `FOUR! ${resultText}`;
+        else if (runs === 6) resultText = `SIX! ${resultText}`;
+        else if (runs === 0) resultText = `Dot Ball (${resultText})`;
+        else resultText = `${runs} Runs (${resultText})`;
+
+        this.ui.showShotResult(resultText);
+        this.ui.showLastShot('Hit', runs);
+
+        // Reset for next ball after delay
+        setTimeout(() => {
+            this.resetForNextDelivery();
+        }, 3000);
     }
 
     /**
@@ -656,6 +723,13 @@ class CricketARGame {
      */
     checkDeliveryComplete() {
         const ballPos = this.physics.getBallPosition();
+
+        // Check for Bowled (hitting stumps)
+        // Stumps are at Z=10, X=0 (approx width 0.23m)
+        if (Math.abs(ballPos.z - 10) < 0.5 && Math.abs(ballPos.x) < 0.15 && ballPos.y < 0.8) {
+            this.endDelivery('bowled');
+            return;
+        }
 
         // Ball passed batsman without hit
         if (!this.hasHitThisDelivery && this.physics.hasBallPassedBatsman()) {
@@ -689,7 +763,9 @@ class CricketARGame {
             const prediction = this.physics.predictLandingZone();
             const shot = this.batting.calculateShot(this.physics.getBallPosition());
             shotName = shot.name;
-            runs = this.batting.calculateRuns(shotName, prediction.distance, prediction.zone);
+            // Use hasBounced from physics, or estimate based on distance for prediction
+            const hasBounced = this.physics.hasBounced || (prediction.distance > 60 && prediction.distance < 70); // Simple fallback
+            runs = this.batting.calculateRuns(shotName, prediction.distance, this.physics.hasBounced);
         }
 
         // Update score
@@ -699,7 +775,8 @@ class CricketARGame {
 
         // Show result
         let resultText = shotName;
-        if (runs === 6) resultText = '🎉 SIX! 🎉';
+        if (outcome === 'bowled') resultText = '🔥 BOWLED! 🔥';
+        else if (runs === 6) resultText = '🎉 SIX! 🎉';
         else if (runs === 4) resultText = '🏏 FOUR! 🏏';
         else if (runs > 0) resultText = `${runs} Run${runs > 1 ? 's' : ''}`;
 
@@ -708,7 +785,7 @@ class CricketARGame {
         // Reset for next delivery
         setTimeout(() => {
             this.resetForNextDelivery();
-        }, 2000);
+        }, 3000);
     }
 
     /**

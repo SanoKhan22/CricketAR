@@ -85,15 +85,46 @@ export class Physics {
         this.world.addContactMaterial(ballGroundContact);
 
         this.world.addBody(this.ballBody);
+
+        // Bounce tracking
+        this.hasBounced = false;
+        this.bounceCount = 0;
+
+        this.ballBody.addEventListener('collide', (e) => {
+            if (e.body === this.groundBody) {
+                const impactVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
+                if (impactVelocity > 0.5) {
+                    this.hasBounced = true;
+                    this.bounceCount++;
+                    console.log(`🏏 Bounce #${this.bounceCount}: Impact=${impactVelocity.toFixed(1)}m/s`);
+                }
+            }
+        });
     }
 
     /**
-     * Reset ball to bowling position
+     * Get distance from stumps (batting crease at Z=10)
      */
+    getDistanceFromStumps() {
+        if (!this.ballBody) return 0;
+        const pos = this.ballBody.position;
+        const dx = pos.x;
+        const dz = pos.z - 10;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    /**
+     * Check if ball crossed boundary
+     */
+    checkBoundary(distance) {
+        return distance > 60;
+    }
     resetBall(x = 0, y = 2, z = -10) {
         this.ballBody.position.set(x, y, z);
         this.ballBody.velocity.set(0, 0, 0);
         this.ballBody.angularVelocity.set(0, 0, 0);
+        this.hasBounced = false;
+        this.bounceCount = 0;
     }
 
     /**
@@ -135,29 +166,97 @@ export class Physics {
     }
 
     /**
-     * Apply hit force to ball - stronger force for more dramatic shots
+     * Apply hit force to ball - EXIT VELOCITY PHYSICS with LOWER coefficients
+     * 
+     * Formula:
+     *   BatEnergy = BatSpeed² × 0.15 (REDUCED from 0.35)
+     *   ReboundEnergy = BowlSpeed × 0.03 (REDUCED from 0.12)
+     *   TotalEnergy = (BatEnergy + ReboundEnergy) × ZoneMultiplier × TimingMultiplier
+     *   ExitVelocity = √(TotalEnergy)
+     * 
+     * @param {Object} direction - Direction vector {x, y, z}
+     * @param {number} batSpeed - Bat speed in m/s (0-20)
+     * @param {number} zoneMultiplier - Zone power multiplier (0.1 to 1.0)
+     * @param {number} deflection - Horizontal deflection for edge hits
+     * @param {number} bowlSpeed - Incoming bowl speed in m/s (22-44)
+     * @param {number} launchAngle - Launch angle in degrees (8-45)
+     * @param {number} timingMultiplier - Timing quality (0.4 to 1.2)
      */
-    hit(direction, power = 1) {
-        const { x, y, z } = direction;
+    hit(direction, batSpeed = 5, zoneMultiplier = 1.0, deflection = 0, bowlSpeed = 30, launchAngle = 22, timingMultiplier = 1.0) {
+        let { x, y, z } = direction;
 
-        // Calculate impulse based on power (0-1) - increased for better visibility
-        const force = 35 * power;
+        // Apply edge deflection
+        x += deflection;
 
+        // === EXIT VELOCITY PHYSICS - LOWER COEFFICIENTS ===
+
+        // Bat energy: REDUCED coefficient so weak hits don't fly
+        // Weak hit (5 m/s): 25 × 0.15 = 3.75
+        // Power hit (18 m/s): 324 × 0.15 = 48.6
+        const batEnergy = Math.pow(batSpeed, 2) * 0.15;
+
+        // Rebound energy: MUCH LOWER so ball doesn't auto-fly
+        // Fast bowl (40 m/s): 40 × 0.03 = 1.2
+        const reboundEnergy = bowlSpeed * 0.03;
+
+        // Total energy with zone and timing adjustments
+        const totalEnergy = (batEnergy + reboundEnergy) * zoneMultiplier * timingMultiplier;
+
+        // Exit velocity = sqrt of energy
+        const exitVelocity = Math.sqrt(totalEnergy);
+
+        // === LAUNCH ANGLE TRAJECTORY ===
+        const angleRad = (launchAngle * Math.PI) / 180;
+
+        // Velocity components
+        const horizontalVelocity = Math.cos(angleRad) * exitVelocity;
+        let verticalVelocity = Math.sin(angleRad) * exitVelocity;
+
+        // Weak zone hits: reduce effectiveness, add pop-up
+        if (zoneMultiplier < 0.5) {
+            verticalVelocity = Math.abs(verticalVelocity) * 0.5 + 1.5;
+        }
+
+        // Minimum vertical to prevent underground
+        verticalVelocity = Math.max(0.5, verticalVelocity);
+
+        // Apply impulse to ball
         const impulse = new CANNON.Vec3(
-            x * force * 1.5,              // Side direction
-            Math.abs(y) * force * 0.8 + 8, // More upward force
-            -z * force * 1.2              // Forward (negative z = towards boundary)
+            x * horizontalVelocity * 1.2,    // Side direction
+            verticalVelocity,                 // Vertical
+            -z * horizontalVelocity * 1.0     // Forward (towards boundary)
         );
 
         this.ballBody.applyImpulse(impulse, this.ballBody.position);
-        console.log('Hit applied:', { direction, power, force: force.toFixed(1) });
+
+        console.log(`🏏 Exit: BatSpeed=${batSpeed.toFixed(1)}, BatEng=${batEnergy.toFixed(1)}, Rebound=${reboundEnergy.toFixed(1)}, Zone=${zoneMultiplier.toFixed(2)}, Timing=${timingMultiplier}x → Velocity=${exitVelocity.toFixed(1)}m/s, Angle=${launchAngle}°`);
     }
 
     /**
-     * Update physics simulation
+     * Update physics simulation with ground friction
      */
     update(deltaTime = 1 / 60) {
         this.world.step(deltaTime);
+
+        // === GROUND FRICTION ===
+        // Apply friction ONLY when ball is on ground (y ≈ ball radius 0.35)
+        // AND vertical velocity is low (not bouncing)
+        if (this.ballBody && this.ballBody.position.y < 0.4 && Math.abs(this.ballBody.velocity.y) < 1.0) {
+            const vel = this.ballBody.velocity;
+            const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+
+            // Strong friction (15 m/s² deceleration)
+            if (speed > 0.1) {
+                const friction = 15.0 * deltaTime;
+                const factor = Math.max(0, 1 - friction / speed);
+                vel.x *= factor;
+                vel.z *= factor;
+            } else {
+                // Ball has stopped
+                vel.x = 0;
+                vel.z = 0;
+            }
+        }
     }
 
     /**
@@ -212,10 +311,9 @@ export class Physics {
      */
     predictLandingZone() {
         const pos = this.getBallPosition();
-        const vel = this.getBallVelocity();
 
-        // Simple prediction based on current trajectory
-        const distance = Math.sqrt(pos.x ** 2 + pos.z ** 2);
+        // Use correct distance from batting crease
+        const distance = this.getDistanceFromStumps();
 
         // Determine zone based on angle
         const angle = Math.atan2(pos.x, -pos.z) * (180 / Math.PI);

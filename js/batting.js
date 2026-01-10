@@ -34,10 +34,11 @@ export class Batting {
         this.swingThreshold = 0.8;
 
         /**
-         * Authentic Cricket Shots with Clock Face Directions
+         * Authentic Cricket Shots with Clock Face Directions and Launch Angles
          * Direction vectors: x = left/right, y = height, z = forward/back
          * Positive x = Off-side (right), Negative x = Leg-side (left)
          * Positive z = towards boundary (12 o'clock), Negative z = towards wicketkeeper (6 o'clock)
+         * Launch Angles: Defensive 8°, Drives 22°, Cuts 28°, Pulls 35°, Lofts 45°
          */
         this.shots = {
             // 1. Forward Defensive - Ball drops at feet (12 o'clock, minimal power)
@@ -46,6 +47,7 @@ export class Batting {
                 clockPosition: 12,
                 direction: { x: 0, y: 0.1, z: 0.3 },
                 power: 0.15,
+                launchAngle: 8,  // Low angle - ball stays along ground
                 description: 'Safety shot - kills the ball speed'
             },
 
@@ -55,6 +57,7 @@ export class Batting {
                 clockPosition: 3,
                 direction: { x: 1.5, y: 0.3, z: 0.2 },
                 power: 0.85,
+                launchAngle: 28,  // Medium-high - powerful horizontal
                 description: 'Powerful horizontal hit to Point/Backward Point'
             },
 
@@ -64,6 +67,7 @@ export class Batting {
                 clockPosition: 10.5,
                 direction: { x: -0.5, y: 0.5, z: 1.2 },
                 power: 0.9,
+                launchAngle: 22,  // Classic drive angle
                 description: 'Elegant drive toward Mid-on'
             },
 
@@ -73,6 +77,7 @@ export class Batting {
                 clockPosition: 8.5,
                 direction: { x: -1.5, y: 0.4, z: 0.3 },
                 power: 0.95,
+                launchAngle: 35,  // Higher arc for pull
                 description: 'Response to bouncer - whipped to Square Leg'
             },
 
@@ -82,6 +87,7 @@ export class Batting {
                 clockPosition: 4.5,
                 direction: { x: 1.2, y: 0.2, z: -0.5 },
                 power: 0.6,
+                launchAngle: 20,  // Lower angle - touch shot
                 description: 'Touch shot past slip to Third Man'
             },
 
@@ -91,6 +97,7 @@ export class Batting {
                 clockPosition: 12,
                 direction: { x: 0, y: 0.6, z: 1.5 },
                 power: 0.95,
+                launchAngle: 25,  // Classic drive trajectory
                 description: 'Classic drive straight past bowler'
             },
 
@@ -99,6 +106,7 @@ export class Batting {
                 clockPosition: 1.5,
                 direction: { x: 0.8, y: 0.5, z: 1.2 },
                 power: 0.9,
+                launchAngle: 22,  // Elegant drive angle
                 description: 'Elegant drive through covers'
             },
 
@@ -107,6 +115,7 @@ export class Batting {
                 clockPosition: 9,
                 direction: { x: -1, y: 0.4, z: 0.8 },
                 power: 0.75,
+                launchAngle: 28,  // Wristy flick - bit of loft
                 description: 'Wristy flick to Mid-wicket'
             },
 
@@ -115,6 +124,7 @@ export class Batting {
                 clockPosition: 0,
                 direction: { x: 0, y: 0, z: 0 },
                 power: 0,
+                launchAngle: 0,
                 description: 'Missed the ball'
             }
         };
@@ -311,20 +321,46 @@ export class Batting {
         return positions[clockPos] || `${clockPos} o'clock`;
     }
 
-    calculateRuns(shotName, distance, zone) {
-        const shot = Object.values(this.shots).find(s => s.name === shotName) || this.shots['miss'];
-        if (shot.name === 'Miss!') return 0;
-        if (shot.name === 'Forward Defensive') return 0;
+    /**
+     * Calculate runs based on distance and bounce
+     * 
+     * BOUNDARY LINE: 65m
+     * 
+     * Distance-Based Scoring:
+     * - 0-10m = 0 runs (Dot ball - fielder stops it)
+     * - 10-25m = 1 run (Quick single)
+     * - 25-45m = 2 runs (Good placement)
+     * - 45-60m = 3 runs (Running hard)
+     * - 60-65m = 4 runs (Boundary after bounce)
+     * - 65m+ = 6 runs (Over the rope - SIX!)
+     */
+    calculateRuns(shotName, distance, hasBounced) {
+        // Miss always 0
+        if (shotName === 'Miss!') return 0;
 
-        if (distance > 65) return 6;
-        if (distance > 55) return 4;
+        // Forward Defensive never scores
+        if (shotName === 'Forward Defensive') return 0;
 
-        const rand = Math.random();
-        if (distance > 40) return rand > 0.3 ? 3 : 2;
-        if (distance > 25) return rand > 0.4 ? 2 : 1;
-        if (distance > 10) return rand > 0.5 ? 1 : 0;
+        // === BOUNDARY CHECK (65m line) ===
+        const boundaryLine = 65;
 
-        return 0;
+        if (distance >= boundaryLine) {
+            // Crossed boundary - SIX (doesn't matter if bounced)
+            return 6;
+        }
+
+        if (distance >= 60 && distance < boundaryLine) {
+            // Reached boundary after traveling - 4 if bounced, 6 if clean
+            return hasBounced ? 4 : 6;
+        }
+
+        // === RUNNING SCORES ===
+        if (distance < 10) return 0;  // Dot ball - fielder pounces
+        if (distance < 25) return 1;  // Quick single
+        if (distance < 45) return 2;  // Good placement - two runs
+        if (distance < 60) return 3;  // Near boundary - three runs
+
+        return 0; // Fallback
     }
 
     getSwingData() {
