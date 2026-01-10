@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import { CameraControls } from './cameraControls.js';
 
 export class Renderer {
     constructor() {
@@ -11,6 +12,7 @@ export class Renderer {
         this.camera = null;
         this.renderer = null;
         this.canvas = null;
+        this.controls = null; // Camera controls
 
         // Scene objects
         this.field = null;
@@ -24,6 +26,7 @@ export class Renderer {
         // Camera states
         this.cameraMode = 'pitch'; // 'pitch', 'inner', 'full'
         this.targetCameraPos = { x: 0, y: 15, z: 25 };
+        this.useInteractiveCamera = true; // Toggle for interactive vs automatic camera
 
         // Animation
         this.animationId = null;
@@ -47,7 +50,11 @@ export class Renderer {
         // Create camera - closer view for pitch
         const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
         this.camera = new THREE.PerspectiveCamera(50, aspect, 0.1, 500);
-        this.setCameraMode('pitch');
+
+        // IMPORTANT: Set initial camera position explicitly
+        // This must be done BEFORE controls initialize
+        this.camera.position.set(0, 25, 40);
+        this.camera.lookAt(0, 0, 0);
 
         // Create renderer
         this.renderer = new THREE.WebGLRenderer({
@@ -64,23 +71,41 @@ export class Renderer {
         // Create cricket field with circles
         this.createField();
 
+        // Initialize camera controls AFTER camera is positioned
+        // The controls will take over from this position
+        this.controls = new CameraControls(this.camera, this.canvas);
+        // Sync controls with current camera position
+        this.controls.setView(40, 0, Math.PI / 3);
+
+        // Set camera mode for automatic camera (used when interactive mode is disabled)
+        this.setCameraMode('pitch');
+
         // Handle resize
         window.addEventListener('resize', () => this.onResize());
 
-        console.log('Renderer initialized');
+        console.log('Renderer initialized with interactive camera controls');
         return this;
     }
 
     /**
-     * Add lighting to scene
+     * Add lighting to scene - Enhanced for better visibility
      */
     addLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        // Strong ambient light to ensure everything is visible
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
 
+        // Directional light from above
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(50, 100, 50);
         this.scene.add(dirLight);
+
+        // Hemisphere light for natural outdoor lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        hemiLight.position.set(0, 50, 0);
+        this.scene.add(hemiLight);
+
+        console.log('💡 Lights added: Ambient (1.0), Directional (0.8), Hemisphere (0.6)');
     }
 
     /**
@@ -112,6 +137,18 @@ export class Renderer {
 
         // Create wickets at both ends
         this.createWickets();
+
+        // DEBUG: Add reference cube at origin to verify scene is rendering
+        const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
+        const cubeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff00ff,  // Magenta - very visible
+            emissive: 0x440044
+        });
+        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        cube.position.set(0, 1, 0);  // At origin, 1m above ground
+        cube.name = 'debugCube';
+        this.scene.add(cube);
+        console.log('🎲 Debug cube added at origin (0, 1, 0) - should be VERY visible!');
     }
 
     /**
@@ -324,9 +361,14 @@ export class Renderer {
             return this.ball;
         }
 
-        // Cricket ball (red sphere with seam) - larger
+        // Cricket ball (red sphere with seam) - bright and visible
         const ballGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-        const ballMaterial = new THREE.MeshLambertMaterial({ color: 0xdc2626 });
+        const ballMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,  // Bright red
+            emissive: 0x440000,  // Slight glow
+            roughness: 0.5,
+            metalness: 0.1
+        });
         this.ball = new THREE.Mesh(ballGeometry, ballMaterial);
 
         // Add seam
@@ -337,7 +379,10 @@ export class Renderer {
         this.ball.add(seam);
 
         this.ball.visible = false;
+        this.ball.name = 'cricketBall';
         this.scene.add(this.ball);
+
+        console.log('🏐 Ball created and added to scene');
 
         return this.ball;
     }
@@ -365,9 +410,14 @@ export class Renderer {
     }
 
     /**
-     * Smooth camera transition
+     * Smooth camera transition (only when not using interactive controls)
      */
     updateCamera() {
+        // Skip automatic camera updates if using interactive controls
+        if (this.useInteractiveCamera) {
+            return;
+        }
+
         const speed = 0.05;
         this.camera.position.x += (this.targetCameraPos.x - this.camera.position.x) * speed;
         this.camera.position.y += (this.targetCameraPos.y - this.camera.position.y) * speed;
@@ -385,6 +435,11 @@ export class Renderer {
 
         this.ball.visible = true;
         this.ball.position.set(x, y, z);
+
+        // Debug: Log ball position occasionally
+        if (Math.random() < 0.05) { // 5% chance
+            console.log(`🏐 Ball position: (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}), visible: ${this.ball.visible}`);
+        }
 
         // Rotate ball for visual effect
         this.ball.rotation.x += 0.15;
@@ -554,7 +609,45 @@ export class Renderer {
      * Render single frame
      */
     render() {
+        // Debug: Log camera and scene info once
+        if (!this._debugLogged) {
+            console.log('📷 Camera position:', this.camera.position);
+            console.log('📷 Camera looking at: (0, 0, 0)');
+            console.log('🎬 Scene children:', this.scene.children.length);
+            console.log('🎬 Scene children:', this.scene.children.map(c => c.name || c.type));
+            this._debugLogged = true;
+        }
+
         this.updateCamera();
         this.renderer.render(this.scene, this.camera);
+    }
+
+    /**
+     * Toggle between interactive and automatic camera
+     */
+    setInteractiveCamera(enabled) {
+        this.useInteractiveCamera = enabled;
+        if (this.controls) {
+            this.controls.setEnabled(enabled);
+        }
+        console.log(`Camera mode: ${enabled ? 'Interactive' : 'Automatic'}`);
+    }
+
+    /**
+     * Reset camera to default view
+     */
+    resetCameraView() {
+        if (this.controls) {
+            this.controls.reset();
+        }
+    }
+
+    /**
+     * Cleanup
+     */
+    dispose() {
+        if (this.controls) {
+            this.controls.dispose();
+        }
     }
 }

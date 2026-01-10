@@ -46,11 +46,34 @@ export class Bat {
         this.handleMesh = null;
 
         // Position and rotation
-        this.position = { x: 0, y: 0, z: 10 }; // Near batting end
+        this.position = { x: 0, y: 0, z: 12 }; // In front of wickets
         this.rotation = { x: 0, y: 0, z: 0 };
 
         // For collision detection
         this.boundingBox = null;
+
+        // Swing detection (Step 4)
+        this.previousHandPosition = null;
+        this.previousTime = Date.now();
+        this.swingVelocity = { x: 0, y: 0, z: 0 };
+        this.isSwinging = false;
+        this.swingThreshold = 5.0; // units per second
+        this.currentHandAngle = 0;
+
+        // Visual guides (Phase 2)
+        this.shadow = null;              // Ground shadow
+        this.collisionZone = null;       // Collision zone sphere
+        this.gripIndicator = null;       // Grip point indicator
+        this.trailPositions = [];        // Swing trail positions
+        this.trailMeshes = [];           // Swing trail meshes
+        this.maxTrailLength = 10;
+        this.scene = null;               // Store scene reference
+
+        // Visual guide toggles
+        this.showShadow = true;
+        this.showCollisionZone = true;
+        this.showGripIndicator = true;
+        this.showTrail = true;
     }
 
     /**
@@ -108,11 +131,59 @@ export class Bat {
         rightEdge.name = 'rightEdge';
         this.batGroup.add(rightEdge);
 
-        // Position bat at batting crease
-        this.batGroup.position.set(0, 2, 10);
-        this.batGroup.rotation.x = Math.PI / 6; // Slight angle
+        // Position bat at batting crease - NATURAL BATTING STANCE
+        // Height: 1.0 (waist level, ready to hit)
+        // Angle: Horizontal (ready position)
+        // Z-position: 12 (in front of wickets, not inside them!)
+        this.batGroup.position.set(0, 1.0, 12);
+        this.batGroup.rotation.x = 0; // No forward tilt initially
+        this.batGroup.rotation.y = 0; // Facing straight
+        this.batGroup.rotation.z = Math.PI / 2; // Horizontal (ready to hit)
 
         scene.add(this.batGroup);
+
+        // Store scene reference for trail
+        this.scene = scene;
+
+        // === PHASE 2: Visual Guides ===
+
+        // 1. Ground Shadow
+        const shadowGeometry = new THREE.CircleGeometry(0.5, 32);
+        const shadowMaterial = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        });
+        this.shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
+        this.shadow.rotation.x = -Math.PI / 2; // Horizontal
+        this.shadow.position.set(0, 0.01, 12); // Just above ground
+        this.shadow.visible = this.showShadow;
+        scene.add(this.shadow);
+
+        // 2. Collision Zone (sphere around bat)
+        const zoneGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+        const zoneMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.2,
+            wireframe: true
+        });
+        this.collisionZone = new THREE.Mesh(zoneGeometry, zoneMaterial);
+        this.collisionZone.visible = this.showCollisionZone;
+        this.batGroup.add(this.collisionZone);
+
+        // 3. Grip Indicator (small sphere at grip point)
+        const gripGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+        const gripMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            transparent: true,
+            opacity: 0.6
+        });
+        this.gripIndicator = new THREE.Mesh(gripGeometry, gripMaterial);
+        this.gripIndicator.position.y = this.dimensions.totalLength / 2 - this.dimensions.handleLength / 2;
+        this.gripIndicator.visible = this.showGripIndicator;
+        this.batGroup.add(this.gripIndicator);
 
         // Create bounding box for collision
         this.updateBoundingBox();
@@ -122,77 +193,144 @@ export class Bat {
     }
 
     /**
-     * Update bat position and ROTATION based on hand landmarks
+     * Update bat position based on hand landmarks
+     * Following Bat Fixation Guide - Steps 2 & 4
      * 
-     * CRICKET BATTING MOTION:
-     * - Fingers DOWN (pointing down) = Bat HORIZONTAL (ready to hit)
-     * - Fingers UP (pointing up) = Bat VERTICAL (lifted/backswing)
-     * 
-     * Key landmarks:
-     * - 0: Wrist
-     * - 12: Middle finger tip
+     * Step 2: Direct position control (no smoothing)
+     * Step 4: Swing detection (velocity tracking)
      */
     updateFromLandmarks(landmarks, handVelocity) {
         if (!this.batGroup || !landmarks || landmarks.length < 21) return;
 
         // Get key landmarks
-        const wrist = landmarks[0];        // Base of hand
-        const indexBase = landmarks[5];    // Index finger base
-        const middleBase = landmarks[9];   // Middle finger base
-        const pinkyBase = landmarks[17];   // Pinky base
-        const middleTip = landmarks[12];   // Middle finger tip
+        const wrist = landmarks[0];
+        const indexBase = landmarks[5];
+        const middleBase = landmarks[9];
+        const pinkyBase = landmarks[17];
+        const middleTip = landmarks[12];
 
-        // Calculate hand center (palm position)
+        // === STEP 2: Direct Position Control ===
+
+        // Calculate palm center (grip point)
         const palmCenter = {
             x: (wrist.x + middleBase.x) / 2,
             y: (wrist.y + middleBase.y) / 2
         };
 
-        // Map palm position to 3D world
-        const batX = (0.5 - palmCenter.x) * 6; // Inverted for mirror
-        const batY = (1 - palmCenter.y) * 3.5 + 0.5;
+        // Map to 3D world coordinates
+        const batX = (0.5 - palmCenter.x) * 6; // Horizontal (inverted for mirror)
+        const batY = (1 - palmCenter.y) * 2.5 + 0.9; // Vertical + 0.9m offset
+        const batZ = 12; // Fixed Z position (in front of wickets)
 
-        // Smooth position movement
-        this.batGroup.position.x += (batX - this.batGroup.position.x) * 0.3;
-        this.batGroup.position.y += (batY - this.batGroup.position.y) * 0.3;
+        // DIRECT position update (no smoothing)
+        this.batGroup.position.x = batX;
+        this.batGroup.position.y = batY;
+        this.batGroup.position.z = batZ;
 
-        // === CALCULATE HAND ROTATION FOR CRICKET MOTION ===
+        // Calculate hand orientation
+        const handForward = {
+            x: middleTip.x - wrist.x,
+            y: middleTip.y - wrist.y
+        };
 
-        // Vector from wrist to middle finger tip
-        const dx = middleTip.x - wrist.x;
-        const dy = middleTip.y - wrist.y;
+        const handRight = {
+            x: pinkyBase.x - indexBase.x,
+            y: pinkyBase.y - indexBase.y
+        };
 
-        // Calculate hand angle
-        // atan2(dx, dy) where positive dy = fingers pointing DOWN
-        // When fingers point DOWN (dy > 0): angle ≈ 0 → bat should be HORIZONTAL
-        // When fingers point UP (dy < 0): angle ≈ PI → bat should be VERTICAL
-        const handAngle = Math.atan2(dx, dy);
+        // Hand angle for bat rotation
+        const handAngle = Math.atan2(handForward.x, handForward.y);
+        const sideTilt = Math.atan2(handRight.y, handRight.x);
 
-        // CRICKET MAPPING:
-        // handAngle ≈ 0 (fingers down) → bat rotation = PI/2 (horizontal, ready to hit)
-        // handAngle ≈ PI (fingers up) → bat rotation = 0 (vertical, lifted)
-        // We add PI/2 offset so fingers-down = horizontal bat
-        const targetRotZ = handAngle + Math.PI / 2;
+        // Apply rotation constraints inline
+        const rotZ = this.clamp(handAngle + Math.PI / 2, -0.79, 2.36); // -45° to +135°
+        const rotX = this.clamp(sideTilt * 0.4, -2.09, 0.52); // -120° to +30°
 
-        // Side tilt for off-side/leg-side angles
-        const sideDx = pinkyBase.x - indexBase.x;
-        const sideDy = pinkyBase.y - indexBase.y;
-        const sideAngle = Math.atan2(sideDy, sideDx);
+        // DIRECT rotation update (no smoothing)
+        this.batGroup.rotation.z = rotZ;
+        this.batGroup.rotation.x = rotX;
+        this.batGroup.rotation.y = 0;
 
-        // X rotation = forward tilt (hitting angle)
-        const targetRotX = sideAngle * 0.4;
+        // Simple ground check
+        if (this.batGroup.position.y < 0.5) {
+            this.batGroup.position.y = 0.5;
+        }
 
-        // Smooth rotation
-        this.batGroup.rotation.z += (targetRotZ - this.batGroup.rotation.z) * 0.3;
-        this.batGroup.rotation.x += (targetRotX - this.batGroup.rotation.x) * 0.25;
+        // === STEP 4: Swing Detection ===
 
-        // Store current hand angle for swing detection
+        const currentTime = Date.now();
+        const deltaTime = (currentTime - this.previousTime) / 1000;
+
+        if (this.previousHandPosition && deltaTime > 0) {
+            // Calculate hand velocity
+            const velocityX = (palmCenter.x - this.previousHandPosition.x) / deltaTime;
+            const velocityY = (palmCenter.y - this.previousHandPosition.y) / deltaTime;
+
+            const speed = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+
+            // Detect swing (speed > threshold)
+            if (speed > this.swingThreshold) {
+                this.isSwinging = true;
+                this.swingVelocity = {
+                    x: velocityX,
+                    y: velocityY,
+                    z: 0
+                };
+            } else {
+                this.isSwinging = false;
+            }
+        }
+
+        // Store for next frame
+        this.previousHandPosition = { x: palmCenter.x, y: palmCenter.y };
+        this.previousTime = currentTime;
         this.currentHandAngle = handAngle;
 
-        // Detect swing motion (rapid change from fingers-up to fingers-down)
-        this.isSwinging = handVelocity && Math.abs(handVelocity.y) > 1.5;
+        // === Update Visual Guides ===
+
+        // Update ground shadow
+        if (this.shadow) {
+            this.shadow.position.x = this.batGroup.position.x;
+            this.shadow.position.z = this.batGroup.position.z;
+            // Fade shadow based on height
+            const height = this.batGroup.position.y;
+            this.shadow.material.opacity = Math.max(0, 0.5 - height * 0.1);
+        }
+
+        // Update collision zone color (green when swinging)
+        if (this.collisionZone) {
+            if (this.isSwinging) {
+                this.collisionZone.material.color.setHex(0x00ff00); // Green
+                this.collisionZone.material.opacity = 0.4;
+            } else {
+                this.collisionZone.material.color.setHex(0x00ffff); // Cyan
+                this.collisionZone.material.opacity = 0.2;
+            }
+        }
+
+        // Update swing trail
+        if (this.showTrail && this.isSwinging) {
+            this.updateTrail();
+        } else {
+            this.clearTrail();
+        }
 
         this.updateBoundingBox();
+    }
+
+    /**
+     * Clamp value between min and max
+     */
+    clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * Simplified ground collision - no wicket avoidance needed
+     * Bat is at fixed Z=12, wickets at Z=10, so no collision possible
+     */
+    enforceGroundCollision() {
+        // Not needed - ground check is done inline in updateFromLandmarks
     }
 
     /**
@@ -228,32 +366,43 @@ export class Bat {
     }
 
     /**
-     * Check if ball collides with bat and determine hit zone
+     * Check if ball collides with bat using distance-based detection
+     * Following Bat Fixation Guide - Step 3
+     * 
      * @param {THREE.Vector3} ballPosition - Ball position
      * @param {number} ballRadius - Ball radius
      * @returns {Object|null} - Hit info with zone, or null if no hit
      */
     checkCollision(ballPosition, ballRadius = 0.3) {
-        if (!this.boundingBox || !this.batGroup) return null;
+        if (!this.batGroup) return null;
 
-        // Create ball bounding sphere
-        const ballSphere = new THREE.Sphere(ballPosition, ballRadius);
+        // === STEP 3: Manual Distance Collision ===
 
-        // Check if ball intersects bat bounding box
-        if (!this.boundingBox.intersectsSphere(ballSphere)) {
-            return null;
+        // Calculate distance between ball and bat
+        const dx = ballPosition.x - this.batGroup.position.x;
+        const dy = ballPosition.y - this.batGroup.position.y;
+        const dz = ballPosition.z - this.batGroup.position.z;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // Collision threshold
+        const collisionDistance = 0.5;
+
+        // Check if collision AND bat is swinging
+        if (distance < collisionDistance && this.isSwinging) {
+            // Determine which zone was hit
+            const zone = this.determineHitZone(ballPosition);
+
+            return {
+                hit: true,
+                zone: zone,
+                effect: this.zoneEffects[zone],
+                batPosition: this.batGroup.position.clone(),
+                batRotation: this.batGroup.rotation.clone(),
+                swingVelocity: this.swingVelocity // Include swing velocity for Step 5
+            };
         }
 
-        // Determine which zone was hit
-        const zone = this.determineHitZone(ballPosition);
-
-        return {
-            hit: true,
-            zone: zone,
-            effect: this.zoneEffects[zone],
-            batPosition: this.batGroup.position.clone(),
-            batRotation: this.batGroup.rotation.clone()
-        };
+        return null;
     }
 
     /**
@@ -357,12 +506,90 @@ export class Bat {
     }
 
     /**
-     * Reset bat position
+     * Reset bat position to natural batting stance
      */
     reset() {
         if (this.batGroup) {
-            this.batGroup.position.set(0, 2, 10);
-            this.batGroup.rotation.set(Math.PI / 6, 0, 0);
+            this.batGroup.position.set(0, 1.0, 12);
+            this.batGroup.rotation.set(0, 0, Math.PI / 2);
+        }
+    }
+
+    /**
+     * Update swing trail visualization
+     */
+    updateTrail() {
+        if (!this.scene) return;
+
+        // Store current position
+        this.trailPositions.push(this.batGroup.position.clone());
+        if (this.trailPositions.length > this.maxTrailLength) {
+            this.trailPositions.shift();
+        }
+
+        // Clear old trail meshes
+        this.clearTrail();
+
+        // Create new trail spheres with decreasing opacity
+        for (let i = 0; i < this.trailPositions.length; i++) {
+            const opacity = i / this.trailPositions.length;
+            const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xff6600,
+                transparent: true,
+                opacity: opacity * 0.5
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.copy(this.trailPositions[i]);
+            this.scene.add(sphere);
+            this.trailMeshes.push(sphere);
+        }
+    }
+
+    /**
+     * Clear swing trail
+     */
+    clearTrail() {
+        if (!this.scene) return;
+
+        // Remove all trail meshes
+        for (const mesh of this.trailMeshes) {
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+        }
+        this.trailMeshes = [];
+        this.trailPositions = [];
+    }
+
+    /**
+     * Toggle visual guides
+     */
+    setShadowVisible(visible) {
+        this.showShadow = visible;
+        if (this.shadow) {
+            this.shadow.visible = visible;
+        }
+    }
+
+    setCollisionZoneVisible(visible) {
+        this.showCollisionZone = visible;
+        if (this.collisionZone) {
+            this.collisionZone.visible = visible;
+        }
+    }
+
+    setGripIndicatorVisible(visible) {
+        this.showGripIndicator = visible;
+        if (this.gripIndicator) {
+            this.gripIndicator.visible = visible;
+        }
+    }
+
+    setTrailVisible(visible) {
+        this.showTrail = visible;
+        if (!visible) {
+            this.clearTrail();
         }
     }
 }

@@ -64,32 +64,21 @@ class CricketARGame {
             this.ui.init();
             this.ui.setLoadingStatus('Initializing camera...');
 
-            // Try to initialize camera (may fail)
-            let cameraWorking = false;
-            try {
-                await this.camera.init('camera-feed');
-                const dimensions = await this.camera.start();
-                this.cameraWidth = dimensions.width;
-                this.cameraHeight = dimensions.height;
-                cameraWorking = true;
-            } catch (camError) {
-                console.warn('Camera not available, running in DEMO MODE:', camError.message);
-                this.demoMode = true;
-            }
+            // Initialize camera
+            await this.camera.init('camera-feed');
+            const dimensions = await this.camera.start();
+            this.cameraWidth = dimensions.width;
+            this.cameraHeight = dimensions.height;
 
             // Set up overlay canvas
             this.setupOverlayCanvas();
 
-            if (cameraWorking) {
-                this.ui.setLoadingStatus('Loading hand tracking...');
+            this.ui.setLoadingStatus('Loading hand tracking...');
 
-                // Initialize hand tracking
-                await this.handTracking.init();
-                this.handTracking.onResults((results) => this.onHandResults(results));
-                await this.handTracking.start(this.camera.getVideoElement());
-            } else {
-                this.ui.setLoadingStatus('Demo Mode - Use SPACEBAR to hit!');
-            }
+            // Initialize hand tracking
+            await this.handTracking.init();
+            this.handTracking.onResults((results) => this.onHandResults(results));
+            await this.handTracking.start(this.camera.getVideoElement());
 
             // Always enable keyboard/click controls for hitting (works in both modes)
             this.setupHitControls();
@@ -107,7 +96,7 @@ class CricketARGame {
             // Initialize physics
             this.physics.init();
 
-            this.ui.setLoadingStatus(this.demoMode ? 'Demo Mode Ready!' : 'Ready!');
+            this.ui.setLoadingStatus('Ready!');
 
             // Set up UI callbacks
             this.ui.setCallbacks(
@@ -118,15 +107,12 @@ class CricketARGame {
             // Hide loading screen
             setTimeout(() => {
                 this.ui.hideLoading();
-                if (this.demoMode) {
-                    this.showDemoModeMessage();
-                }
             }, 500);
 
             // Start game loop
             this.start();
 
-            console.log('Cricket AR Game initialized' + (this.demoMode ? ' (DEMO MODE)' : ''));
+            console.log('Cricket AR Game initialized');
 
         } catch (error) {
             console.error('Failed to initialize game:', error);
@@ -190,11 +176,28 @@ class CricketARGame {
                 // Top = lofted, bottom = grounded
                 this.shotDirection.y = 1 - y;
 
-                this.executeHit();
+                this.handleHandHit(x, y);
             }
         });
 
-        console.log('Hit controls enabled: SPACE to hit, Arrow keys for direction');
+        // Visual guide toggles
+        document.getElementById('show-shadow').addEventListener('change', (e) => {
+            this.bat.setShadowVisible(e.target.checked);
+        });
+
+        document.getElementById('show-zone').addEventListener('change', (e) => {
+            this.bat.setCollisionZoneVisible(e.target.checked);
+        });
+
+        document.getElementById('show-grip').addEventListener('change', (e) => {
+            this.bat.setGripIndicatorVisible(e.target.checked);
+        });
+
+        document.getElementById('show-trail').addEventListener('change', (e) => {
+            this.bat.setTrailVisible(e.target.checked);
+        });
+
+        console.log('Hit controls initialized: SPACE to hit, Arrow keys for direction');
     }
 
     /**
@@ -288,45 +291,7 @@ class CricketARGame {
         this.executeHit();
     }
 
-    /**
-     * Show demo mode message
-     */
-    showDemoModeMessage() {
-        const msg = document.createElement('div');
-        msg.id = 'demo-mode-msg';
-        msg.style.cssText = `
-            position: fixed;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(251, 191, 36, 0.9);
-            color: #000;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            z-index: 1000;
-        `;
-        msg.innerHTML = '🎮 DEMO MODE - Press SPACEBAR or click left panel to hit!';
-        document.body.appendChild(msg);
 
-        // Show demo placeholder in camera panel
-        const cameraPanel = document.getElementById('camera-panel');
-        const placeholder = document.createElement('div');
-        placeholder.style.cssText = `
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #a0a0b0;
-        `;
-        placeholder.innerHTML = `
-            <div style="font-size: 3rem;">🏏</div>
-            <div>Camera unavailable</div>
-            <div style="font-size: 0.9rem; margin-top: 10px;">Click here or press SPACE to hit</div>
-        `;
-        cameraPanel.appendChild(placeholder);
-    }
 
     /**
      * Set up overlay canvas dimensions
@@ -453,12 +418,12 @@ class CricketARGame {
                 bounds.centerY * camPanel.clientHeight
             );
         }
-
         console.log('HAND HIT!', shot.name, 'Direction:', direction, 'Power:', power.toFixed(2));
     }
 
     /**
-     * Check for 3D bat collision with ball - zone-based hit detection
+     * Check for bat-ball collision
+     * Following Bat Fixation Guide - Step 5: Apply hit with swing direction
      */
     checkForBatHit() {
         if (!this.bat || !this.physics) return;
@@ -469,35 +434,62 @@ class CricketARGame {
 
         const ballVector = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
 
-        // Check collision with bat zones
+        // Check collision with bat (distance-based, requires swinging)
         const collision = this.bat.checkCollision(ballVector, 0.3);
 
         if (collision && collision.hit) {
             this.hasHitThisDelivery = true;
 
-            // Get hit result based on zone
-            const velocity = this.batting.handVelocity || { x: 0, y: 0 };
-            const hitResult = this.bat.calculateHitResult(collision.zone, velocity);
+            // === STEP 5: Apply Hit with Swing Direction ===
 
-            if (hitResult.power === 0) {
-                // Handle hit - no shot
+            // Get zone power multiplier
+            const zonePower = this.bat.zoneEffects[collision.zone].power;
+
+            // Check for handle hit (no power)
+            if (zonePower === 0) {
                 this.ui.showShotResult('Handle! No shot');
                 console.log('🏏 Hit on HANDLE - no power');
                 return;
             }
 
-            // Apply zone-based physics
-            this.physics.hit(hitResult.direction, hitResult.power);
+            // Calculate swing speed
+            const swingSpeed = Math.sqrt(
+                collision.swingVelocity.x ** 2 +
+                collision.swingVelocity.y ** 2
+            );
+
+            // Hit direction from swing velocity (not bat pointing)
+            const hitDirection = {
+                x: -collision.swingVelocity.x * 2.0, // Invert for mirror, amplify
+                y: Math.max(0.2, 0.6 - collision.swingVelocity.y * 0.4), // Height
+                z: 1.2 // Forward component
+            };
+
+            // Normalize direction vector
+            const mag = Math.sqrt(
+                hitDirection.x ** 2 +
+                hitDirection.y ** 2 +
+                hitDirection.z ** 2
+            );
+            hitDirection.x /= mag;
+            hitDirection.y /= mag;
+            hitDirection.z /= mag;
+
+            // Power from swing speed and zone
+            const power = Math.min(swingSpeed / 5, 1) * zonePower;
+
+            // Apply hit using existing physics method
+            this.physics.hit(hitDirection, power);
 
             // Show zone-specific result
-            const zoneDisplay = `${collision.zone.toUpperCase()}! ${hitResult.description}`;
+            const zoneDisplay = `${collision.zone.toUpperCase()}! Swing: ${swingSpeed.toFixed(1)}`;
             this.ui.showShotResult(zoneDisplay);
 
             // Show impact effect
             const camPanel = document.getElementById('camera-panel');
             this.ui.showImpactEffect(camPanel.clientWidth / 2, camPanel.clientHeight / 2);
 
-            console.log(`🏏 BAT HIT! Zone: ${collision.zone}`, hitResult);
+            console.log(`🏏 BAT HIT! Zone: ${collision.zone}, Swing: ${swingSpeed.toFixed(2)}, Power: ${power.toFixed(2)}`);
         }
     }
 
