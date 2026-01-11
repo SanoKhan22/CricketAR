@@ -30,6 +30,7 @@ export class UI {
             speedControl: document.getElementById('speed-control'),
             lineControl: document.getElementById('line-control'),
             lengthControl: document.getElementById('length-control'),
+            autoBowl: document.getElementById('auto-bowl'),
             bowlBtn: document.getElementById('bowl-btn'),
             randomBtn: document.getElementById('random-btn'),
 
@@ -128,6 +129,13 @@ export class UI {
      */
     setBowlEnabled(enabled) {
         this.elements.bowlBtn.disabled = !enabled;
+    }
+
+    /**
+     * Check if auto-bowl is enabled
+     */
+    isAutoBowlEnabled() {
+        return this.elements.autoBowl && this.elements.autoBowl.checked;
     }
 
     /**

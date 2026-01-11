@@ -12,7 +12,7 @@ export class Physics {
 
         // Physics settings
         this.gravity = -9.82;
-        this.restitution = 0.6; // Bounce factor
+        this.restitution = 0.3; // REDUCED: 2nd bounce small, 3rd tiny
         this.friction = 0.3;
     }
 
@@ -89,6 +89,7 @@ export class Physics {
         // Bounce tracking
         this.hasBounced = false;
         this.bounceCount = 0;
+        this.onSecondBounce = null; // Callback for scoring after 2nd bounce
 
         this.ballBody.addEventListener('collide', (e) => {
             if (e.body === this.groundBody) {
@@ -97,6 +98,15 @@ export class Physics {
                     this.hasBounced = true;
                     this.bounceCount++;
                     console.log(`🏏 Bounce #${this.bounceCount}: Impact=${impactVelocity.toFixed(1)}m/s`);
+
+                    // Trigger scoring after 2nd bounce
+                    if (this.bounceCount === 2 && this.onSecondBounce) {
+                        setTimeout(() => {
+                            const distance = this.getDistanceFromStumps();
+                            console.log(`📊 2nd bounce complete! Distance: ${distance.toFixed(1)}m`);
+                            this.onSecondBounce(distance);
+                        }, 100); // Small delay to let ball settle after bounce
+                    }
                 }
             }
         });

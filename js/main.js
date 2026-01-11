@@ -4,14 +4,14 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=44';
-import { HandTracking } from './handTracking.js?v=44';
-import { Renderer } from './renderer.js?v=44';
-import { Physics } from './physics.js?v=44';
-import { Bowling } from './bowling.js?v=44';
-import { Batting } from './batting.js?v=44';
-import { Bat } from './bat.js?v=44'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=44';
+import { Camera } from './camera.js?v=46';
+import { HandTracking } from './handTracking.js?v=46';
+import { Renderer } from './renderer.js?v=46';
+import { Physics } from './physics.js?v=46';
+import { Bowling } from './bowling.js?v=46';
+import { Batting } from './batting.js?v=46';
+import { Bat } from './bat.js?v=46'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=46';
 
 class CricketARGame {
     constructor() {
@@ -561,6 +561,13 @@ class CricketARGame {
         // Store bowl speed for hit calculation (momentum transfer)
         this.currentBowlSpeed = params.speed;
 
+        // Set up callback for scoring after 2nd bounce
+        this.physics.onSecondBounce = (distance) => {
+            if (this.state !== 'delivery_complete') {
+                this.completeDelivery(distance);
+            }
+        };
+
         // Bowl the ball
         this.physics.bowl(params);
 
@@ -691,6 +698,9 @@ class CricketARGame {
      * Complete delivery and calculate score
      */
     completeDelivery(distance) {
+        if (this.state === 'delivery_complete') return; // Prevent double scoring
+
+        this.state = 'delivery_complete';
         this.deliveryComplete = true;
 
         // Calculate runs based on distance and bounce
@@ -802,6 +812,15 @@ class CricketARGame {
         this.ui.hideBallOverlay();
         this.ui.setBowlEnabled(true);
         this.batting.reset();
+
+        // Auto-bowl if enabled
+        if (this.ui.isAutoBowlEnabled()) {
+            setTimeout(() => {
+                if (this.state === 'idle') {
+                    this.bowl();
+                }
+            }, 2000); // 2 second delay between deliveries
+        }
     }
 
     /**
