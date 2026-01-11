@@ -28,7 +28,35 @@ export class CameraControls {
         this.previousMousePosition = { x: 0, y: 0 };
 
         // Target for smooth camera (look-at point)
-        this.target = { x: 0, y: 0, z: 0 };
+        this.target = { x: 0, y: 1, z: 5 };
+
+        // === NEW: Camera Presets ===
+        this.presets = {
+            // Behind batsman (default)
+            behind: { radius: 40, theta: 0, phi: Math.PI / 3, target: { x: 0, y: 1, z: 10 } },
+
+            // Side view (off side) - looking from point/cover
+            sideOff: { radius: 35, theta: Math.PI / 2, phi: Math.PI / 4, target: { x: 0, y: 1, z: 5 } },
+
+            // Side view (leg side) - looking from square leg
+            sideLeg: { radius: 35, theta: -Math.PI / 2, phi: Math.PI / 4, target: { x: 0, y: 1, z: 5 } },
+
+            // Bowler's view
+            bowler: { radius: 50, theta: Math.PI, phi: Math.PI / 6, target: { x: 0, y: 1, z: 10 } },
+
+            // Zoomed in (for batting, close to action)
+            closeUp: { radius: 25, theta: 0, phi: Math.PI / 4, target: { x: 0, y: 1.5, z: 9 } },
+
+            // Zoomed out (for ball tracking after hit)
+            wide: { radius: 80, theta: 0, phi: Math.PI / 3, target: { x: 0, y: 0, z: 30 } }
+        };
+
+        // === NEW: Smooth Transition Animation ===
+        this.isAnimating = false;
+        this.animationStartTime = 0;
+        this.animationDuration = 800; // ms
+        this.startState = null;
+        this.targetState = null;
 
         // Bind event handlers
         this.onMouseDown = this.onMouseDown.bind(this);
@@ -229,4 +257,164 @@ export class CameraControls {
         this.canvas.removeEventListener('touchmove', this.onTouchMove);
         this.canvas.removeEventListener('touchend', this.onMouseUp);
     }
+
+    // ========================================
+    // NEW: Smooth Camera Transition System
+    // ========================================
+
+    /**
+     * Linear interpolation helper
+     */
+    lerp(start, end, t) {
+        return start + (end - start) * t;
+    }
+
+    /**
+     * Smoothly transition camera to a preset
+     * @param {string} presetName - Name of preset (behind, sideOff, sideLeg, closeUp, wide)
+     * @param {number} duration - Animation duration in ms (default 800)
+     */
+    transitionTo(presetName, duration = 800) {
+        const preset = this.presets[presetName];
+        if (!preset) {
+            console.warn(`Camera preset '${presetName}' not found`);
+            return;
+        }
+
+        // Store starting state
+        this.startState = {
+            radius: this.spherical.radius,
+            theta: this.spherical.theta,
+            phi: this.spherical.phi,
+            target: { ...this.target }
+        };
+
+        // Store target state
+        this.targetState = preset;
+        this.animationDuration = duration;
+        this.animationStartTime = Date.now();
+        this.isAnimating = true;
+
+        console.log(`📷 Camera: transitioning to '${presetName}' over ${duration}ms`);
+    }
+
+    /**
+     * Update animation - call this every frame
+     */
+    update() {
+        if (!this.isAnimating || !this.startState || !this.targetState) {
+            return;
+        }
+
+        const elapsed = Date.now() - this.animationStartTime;
+        const rawT = Math.min(elapsed / this.animationDuration, 1);
+
+        // Ease-out cubic for smooth deceleration
+        const t = 1 - Math.pow(1 - rawT, 3);
+
+        // Interpolate spherical coordinates
+        this.spherical.radius = this.lerp(this.startState.radius, this.targetState.radius, t);
+        this.spherical.theta = this.lerp(this.startState.theta, this.targetState.theta, t);
+        this.spherical.phi = this.lerp(this.startState.phi, this.targetState.phi, t);
+
+        // Interpolate target (look-at point)
+        if (this.targetState.target) {
+            this.target.x = this.lerp(this.startState.target.x, this.targetState.target.x, t);
+            this.target.y = this.lerp(this.startState.target.y, this.targetState.target.y, t);
+            this.target.z = this.lerp(this.startState.target.z, this.targetState.target.z, t);
+        }
+
+        // Update camera position
+        this.updateCameraPosition();
+
+        // Check if animation complete
+        if (rawT >= 1) {
+            this.isAnimating = false;
+            console.log('📷 Camera transition complete');
+        }
+    }
+
+    /**
+     * Smoothly follow a target (like ball position)
+     */
+    followTarget(targetPosition, smoothness = 0.05) {
+        if (this.isAnimating) return; // Don't interrupt transitions
+
+        this.target.x = this.lerp(this.target.x, targetPosition.x, smoothness);
+        this.target.y = this.lerp(this.target.y, targetPosition.y, smoothness);
+        this.target.z = this.lerp(this.target.z, targetPosition.z, smoothness);
+
+        this.updateCameraPosition();
+    }
+
+    /**
+     * Zoom out to track ball after hit - follows ball direction
+     * @param {Object} ballDirection - Direction ball is traveling {x, y, z}
+     */
+    zoomOutForBallTracking(ballDirection = null) {
+        // Create a dynamic preset based on ball direction
+        let theta = 0; // Default: behind
+        let targetZ = 30;
+        let targetX = 0;
+
+        if (ballDirection) {
+            // Calculate camera angle based on ball direction
+            // Ball going left (off side) → camera on right to see it
+            // Ball going right (leg side) → camera on left to see it
+            if (ballDirection.x < -0.3) {
+                // Off side shot → camera from leg side to see ball go to off
+                theta = -Math.PI / 4; // 45° towards leg side
+                targetX = ballDirection.x * 15; // Follow ball X direction
+            } else if (ballDirection.x > 0.3) {
+                // Leg side shot → camera from off side to see ball go to leg
+                theta = Math.PI / 4; // 45° towards off side
+                targetX = ballDirection.x * 15;
+            } else {
+                // Straight shot → slight side angle to see ball travel down ground
+                theta = Math.PI / 12; // 15° slight offset for better trajectory view
+                targetX = 0;
+            }
+
+            // Target should be where ball is heading
+            targetZ = 30 + Math.max(0, ballDirection.z * 20);
+        }
+
+        // Create dynamic zoom out state
+        const dynamicWide = {
+            radius: 80,
+            theta: theta,
+            phi: Math.PI / 3.5, // Higher angle to see ball trajectory
+            target: { x: targetX, y: 2, z: targetZ }
+        };
+
+        // Store and animate to dynamic position
+        this.startState = {
+            radius: this.spherical.radius,
+            theta: this.spherical.theta,
+            phi: this.spherical.phi,
+            target: { ...this.target }
+        };
+
+        this.targetState = dynamicWide;
+        this.animationDuration = 600;
+        this.animationStartTime = Date.now();
+        this.isAnimating = true;
+
+        console.log(`📷 Camera: zooming out to follow ball (θ=${(theta * 180 / Math.PI).toFixed(0)}°)`);
+    }
+
+    /**
+     * Zoom in for next delivery
+     */
+    zoomInForBatting() {
+        this.transitionTo('closeUp', 800);
+    }
+
+    /**
+     * Check if currently animating
+     */
+    isTransitioning() {
+        return this.isAnimating;
+    }
 }
+

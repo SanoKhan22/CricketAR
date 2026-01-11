@@ -74,6 +74,40 @@ export class Bat {
         this.showCollisionZone = true;
         this.showGripIndicator = true;
         this.showTrail = true;
+
+        // === NEW: Realistic batting mechanics ===
+
+        // Bat angle tracking (for shot phases)
+        this.batAngle = 0;               // Current bat angle (0° = vertical)
+        this.previousAngle = 0;
+        this.angleVelocity = 0;          // Rate of angle change
+
+        // Shot phase detection
+        this.shotPhase = 'stance';       // stance, backlift, downswing, follow_through
+        this.backliftStartTime = null;
+        this.downswingStartTime = null;
+
+        // Dynamic height range (for different ball lengths)
+        this.minBatHeight = 0.35;        // Yorker height
+        this.maxBatHeight = 5.0;         // INCREASED: Short ball/bouncer height
+        this.heightMultiplier = 4.0;     // INCREASED: Controls sensitivity
+
+        // Dynamic depth (front/back foot)
+        this.baseZ = 8;                  // At crease
+        this.minZ = 6.5;                 // Maximum front foot (1.5m forward)
+        this.maxZ = 9.5;                 // Maximum back foot (1.5m back)
+        this.currentFootPosition = 'neutral'; // front, neutral, back
+
+        // Shot direction tracking
+        this.shotDirection = 'straight'; // offside, straight, onside
+
+        // Hand data for state machine
+        this.handData = {
+            angle: 0,
+            velocity: { x: 0, y: 0, z: 0, magnitude: 0 },
+            position: { x: 0, y: 0, z: 0 },
+            isTracking: false
+        };
     }
 
     /**
@@ -217,12 +251,22 @@ export class Bat {
             y: (wrist.y + middleBase.y) / 2
         };
 
-        // Map to 3D world coordinates
-        const batX = (0.5 - palmCenter.x) * 6; // Horizontal (inverted for mirror)
-        const batY = (1 - palmCenter.y) * 2.5 + 0.9; // Vertical + 0.9m offset
-        const batZ = 8; // Fixed Z position (in front of wickets)
+        // === NEW: Dynamic positioning for all ball lengths ===
 
-        // DIRECT position update (no smoothing)
+        // X-axis: Horizontal position (inverted for mirror)
+        const batX = (0.5 - palmCenter.x) * 6;
+
+        // Y-axis: DYNAMIC HEIGHT - allows hitting yorkers to bouncers
+        // Hand position directly controls bat height
+        const batY = this.calculateDynamicHeight(palmCenter.y);
+
+        // Z-axis: DYNAMIC DEPTH - front/back foot based on hand size
+        const batZ = this.calculateDynamicDepth(landmarks);
+
+        // Detect shot direction from hand X position
+        this.detectShotDirection(palmCenter.x);
+
+        // DIRECT position update (no smoothing for responsiveness)
         this.batGroup.position.x = batX;
         this.batGroup.position.y = batY;
         this.batGroup.position.z = batZ;
@@ -251,10 +295,9 @@ export class Bat {
         this.batGroup.rotation.x = rotX;
         this.batGroup.rotation.y = 0;
 
-        // Simple ground check - increased height for better visibility
-        if (this.batGroup.position.y < 1.5) {
-            this.batGroup.position.y = 1.5;
-        }
+        // === NEW: Shot Phase Detection ===
+        // Detect if player is in stance, backlift, downswing, or follow-through
+        this.detectShotPhase(landmarks);
 
         // === STEP 4: Swing Detection ===
 
@@ -384,9 +427,8 @@ export class Bat {
         const dz = ballPosition.z - this.batGroup.position.z; // Bat at Z=8
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        // Collision threshold - 1.0m to account for hand positioning offset
-        // Ball comes at X~0.2 but bat can be at X=-1 to X=1 depending on hand
-        const collisionDistance = 1.0;
+        // INCREASED collision threshold - 1.8m base + ball radius for very forgiving detection
+        const collisionDistance = 1.8 + ballRadius;
 
         // Log when ball is near bat Z (within 1.5m)
         if (Math.abs(dz) < 1.5) {
@@ -704,4 +746,209 @@ export class Bat {
             this.clearTrail();
         }
     }
+
+    // ========================================
+    // NEW: Realistic Batting Mechanics Methods
+    // ========================================
+
+    /**
+     * Calculate bat angle from hand landmarks (degrees from vertical)
+     * 0° = bat vertical (stance), 47° = backlift, 30° = downswing
+     */
+    calculateBatAngle(landmarks) {
+        if (!landmarks || landmarks.length < 21) return 0;
+
+        const wrist = landmarks[0];
+        const middleMCP = landmarks[9]; // Middle finger knuckle
+
+        // Vector from wrist to knuckle
+        const dx = middleMCP.x - wrist.x;
+        const dy = middleMCP.y - wrist.y;
+
+        // Angle from vertical (0° = hand pointing up, 90° = horizontal)
+        const angleRad = Math.atan2(dx, -dy);
+        const angleDeg = angleRad * (180 / Math.PI);
+
+        // Track angle velocity
+        this.previousAngle = this.batAngle;
+        this.batAngle = angleDeg;
+        this.angleVelocity = this.batAngle - this.previousAngle;
+
+        return angleDeg;
+    }
+
+    /**
+     * Detect shot phase based on angle and velocity
+     * Returns: stance, backlift, downswing, follow_through
+     */
+    detectShotPhase(landmarks) {
+        const angle = this.calculateBatAngle(landmarks);
+        const velocity = this.swingVelocity;
+        const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2);
+
+        const previousPhase = this.shotPhase;
+
+        // Phase detection logic based on angle and movement
+        if (angle > 35 && angle < 70 && this.angleVelocity > 0) {
+            // Angle increasing towards backlift (35-70°)
+            this.shotPhase = 'backlift';
+            if (previousPhase !== 'backlift') {
+                this.backliftStartTime = Date.now();
+            }
+        } else if (angle < 45 && this.angleVelocity < -2 && speed > 3) {
+            // Angle decreasing rapidly with forward movement
+            this.shotPhase = 'downswing';
+            if (previousPhase !== 'downswing') {
+                this.downswingStartTime = Date.now();
+            }
+        } else if (angle < 0 && speed > 1) {
+            // Past vertical with continued motion
+            this.shotPhase = 'follow_through';
+        } else if (speed < 1) {
+            // Stable, low movement
+            this.shotPhase = 'stance';
+        }
+
+        // Log phase changes
+        if (this.shotPhase !== previousPhase) {
+            console.log(`🏏 Shot Phase: ${previousPhase} → ${this.shotPhase} (angle: ${angle.toFixed(1)}°)`);
+        }
+
+        return this.shotPhase;
+    }
+
+    /**
+     * Calculate dynamic bat height based on hand position
+     * IMPROVED: More responsive for reaching high balls
+     */
+    calculateDynamicHeight(handY) {
+        // handY: 0 = top of screen, 1 = bottom
+        // Map to bat height: high hand = high bat (for short balls)
+
+        // Invert so high hand = high bat
+        const normalizedHeight = 1 - handY;
+
+        // Apply AGGRESSIVE curve - small hand movement = big height change
+        // Exponent 0.5 means bat responds faster to upward hand motion
+        const curved = Math.pow(normalizedHeight, 0.5);
+
+        // Map to EXTENDED height range (0.35 to 5.0 meters)
+        const height = this.minBatHeight + curved * (this.maxBatHeight - this.minBatHeight);
+
+        return Math.max(this.minBatHeight, Math.min(this.maxBatHeight, height));
+    }
+
+    /**
+     * Calculate dynamic depth (Z position) based on hand size
+     * Larger hand = closer to camera = front foot
+     */
+    calculateDynamicDepth(landmarks) {
+        if (!landmarks || landmarks.length < 21) return this.baseZ;
+
+        // Calculate hand size from palm landmarks
+        const wrist = landmarks[0];
+        const middleTip = landmarks[12];
+        const pinkyMCP = landmarks[17];
+        const indexMCP = landmarks[5];
+
+        // Hand span (width)
+        const width = Math.abs(pinkyMCP.x - indexMCP.x);
+        // Hand length
+        const length = Math.sqrt(
+            Math.pow(middleTip.x - wrist.x, 2) +
+            Math.pow(middleTip.y - wrist.y, 2)
+        );
+
+        const handSize = (width + length) / 2;
+
+        // Map hand size to depth
+        // Large (close) = 0.15+ → front foot (Z < 8)
+        // Small (far) = 0.08- → back foot (Z > 8)
+        if (handSize > 0.15) {
+            this.currentFootPosition = 'front';
+            return this.minZ + (0.20 - handSize) / 0.05 * (this.baseZ - this.minZ);
+        } else if (handSize < 0.10) {
+            this.currentFootPosition = 'back';
+            return this.baseZ + (0.10 - handSize) / 0.05 * (this.maxZ - this.baseZ);
+        } else {
+            this.currentFootPosition = 'neutral';
+            return this.baseZ;
+        }
+    }
+
+    /**
+     * Detect shot direction based on hand X position
+     */
+    detectShotDirection(handX) {
+        // handX: 0 = left of screen, 1 = right
+        // In camera view (mirrored): left hand position = off side
+
+        if (handX < 0.35) {
+            this.shotDirection = 'offside';
+        } else if (handX > 0.65) {
+            this.shotDirection = 'onside';
+        } else {
+            this.shotDirection = 'straight';
+        }
+
+        return this.shotDirection;
+    }
+
+    /**
+     * Get hand data for state machine integration
+     */
+    getHandData() {
+        return {
+            angle: this.batAngle,
+            velocity: {
+                x: this.swingVelocity.x,
+                y: this.swingVelocity.y,
+                z: this.swingVelocity.z || 0,
+                magnitude: Math.sqrt(
+                    this.swingVelocity.x ** 2 +
+                    this.swingVelocity.y ** 2 +
+                    (this.swingVelocity.z || 0) ** 2
+                )
+            },
+            position: {
+                x: this.batGroup?.position.x || 0,
+                y: this.batGroup?.position.y || 0,
+                z: this.batGroup?.position.z || 0
+            },
+            isTracking: this.batGroup !== null,
+            shotPhase: this.shotPhase,
+            footPosition: this.currentFootPosition,
+            shotDirection: this.shotDirection,
+            isSwinging: this.isSwinging,
+            angleVelocity: this.angleVelocity
+        };
+    }
+
+    /**
+     * Get timing quality info for display
+     */
+    getTimingInfo() {
+        return {
+            phase: this.shotPhase,
+            backliftDuration: this.backliftStartTime
+                ? Date.now() - this.backliftStartTime
+                : 0,
+            downswingDuration: this.downswingStartTime
+                ? Date.now() - this.downswingStartTime
+                : 0,
+            hadBacklift: this.backliftStartTime !== null
+        };
+    }
+
+    /**
+     * Reset shot state for new delivery
+     */
+    resetShotState() {
+        this.shotPhase = 'stance';
+        this.backliftStartTime = null;
+        this.downswingStartTime = null;
+        this.currentFootPosition = 'neutral';
+        this.shotDirection = 'straight';
+    }
 }
+

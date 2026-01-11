@@ -312,8 +312,8 @@ export class Physics {
      */
     isInHittingZone() {
         const pos = this.ballBody.position;
-        // Hitting zone: z between 5 and 12, y between 0 and 4 (generous zone)
-        return pos.z > 5 && pos.z < 12 && pos.y > 0 && pos.y < 4;
+        // EXPANDED hitting zone: z between 4 and 14, y between 0 and 5 (very generous)
+        return pos.z > 4 && pos.z < 14 && pos.y > 0 && pos.y < 5;
     }
 
     /**

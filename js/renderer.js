@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js';
+import { CameraControls } from './cameraControls.js?v=63';
 
 export class Renderer {
     constructor() {

@@ -4,14 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=47';
-import { HandTracking } from './handTracking.js?v=47';
-import { Renderer } from './renderer.js?v=47';
-import { Physics } from './physics.js?v=47';
-import { Bowling } from './bowling.js?v=47';
-import { Batting } from './batting.js?v=47';
-import { Bat } from './bat.js?v=47'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=47';
+import { Camera } from './camera.js?v=63';
+import { HandTracking } from './handTracking.js?v=63';
+import { Renderer } from './renderer.js?v=63';
+import { Physics } from './physics.js?v=63';
+import { Bowling } from './bowling.js?v=63';
+import { Batting } from './batting.js?v=63';
+import { Bat } from './bat.js?v=63'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=63';
+import { ShotStateMachine } from './shotStateMachine.js?v=63';
+import { TimingSystem } from './timingSystem.js?v=63';
 
 class CricketARGame {
     constructor() {
@@ -24,6 +26,10 @@ class CricketARGame {
         this.batting = new Batting();
         this.bat = new Bat(); // 3D bat with zones
         this.ui = new UI();
+
+        // === NEW: Realistic batting systems ===
+        this.shotStateMachine = new ShotStateMachine();
+        this.timingSystem = new TimingSystem();
 
         // Game state
         this.state = 'idle'; // idle, bowling, batting, result
@@ -51,8 +57,13 @@ class CricketARGame {
             targetFPS: 30,
             bounceCoefficient: 0.6,
             swingThreshold: 1.5,
-            hitZoneZ: { min: 7, max: 10 },
-            hitZoneY: { min: 0.3, max: 2.5 }
+            hitZoneZ: { min: 6, max: 10 }, // Extended for front foot play
+            hitZoneY: { min: 0.3, max: 3.5 } // Extended for bouncers
+        };
+
+        // Set up shot state machine callbacks
+        this.shotStateMachine.onDownswingStart = () => {
+            this.timingSystem.onDownswingStart();
         };
     }
 
@@ -376,6 +387,99 @@ class CricketARGame {
             ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
             ctx.fillRect(x, y, w, h);
         }
+
+        // Draw visual guides (doesn't block collision)
+        this.drawBattingGuides(ctx, width, height);
+    }
+
+    /**
+     * Draw batting zone and ball position guide on camera
+     * VISUAL ONLY - does not affect collision detection
+     * Ball travels from TOP of screen (bowler) to BATTING AREA (you)
+     */
+    drawBattingGuides(ctx, width, height) {
+        // === BATTING ZONE BOX ===
+        // This is where your hand should be and where ball will arrive
+        const zoneX = width * 0.2;
+        const zoneY = height * 0.30;  // Higher on screen (30% from top)
+        const zoneW = width * 0.6;
+        const zoneH = height * 0.55;  // Taller zone
+
+        // Draw batting zone
+        ctx.strokeStyle = 'rgba(0, 200, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(zoneX, zoneY, zoneW, zoneH);
+        ctx.setLineDash([]);
+
+        // Label
+        ctx.font = 'bold 12px Arial';
+        ctx.fillStyle = 'rgba(0, 200, 255, 0.7)';
+        ctx.fillText('BATTING AREA', zoneX + 5, zoneY - 5);
+
+        // === BALL POSITION INDICATOR ===
+        // Ball starts at TOP (Z=0) and comes DOWN to batting area (Z=10)
+        if (this.state === 'bowling' || this.state === 'batting') {
+            const ballPos = this.physics.getBallPosition();
+
+            // Progress: 0 = bowler end (top), 1 = hitting zone (in batting area)
+            const zProgress = Math.max(0, Math.min(1, ballPos.z / 10));
+
+            // Ball Y: starts at top (0.0), ends DEEP in batting area (0.70)
+            const ballCamY = (0.0 + zProgress * 0.70) * height;
+
+            // Ball X: centered, but shifts based on line
+            // Map 3D X (-3 to +3) to screen X, keeping it within batting area
+            const centerX = width * 0.5;
+            const ballCamX = centerX - (ballPos.x / 5) * zoneW * 0.4;
+
+            // Ball size: small when far (top), big when close (batting area)
+            const radius = Math.max(5, 10 + zProgress * 25);
+
+            // Ball height (3D Y) affects vertical position slightly
+            // High ball = slightly higher in camera, low ball = slightly lower
+            const heightOffset = (1.5 - ballPos.y) * 30 * zProgress;
+            const finalBallY = ballCamY + heightOffset;
+
+            // Draw ball indicator
+            const inHittingZone = this.physics.isInHittingZone();
+            ctx.beginPath();
+            ctx.arc(ballCamX, finalBallY, radius, 0, Math.PI * 2);
+
+            if (inHittingZone) {
+                // BIG RED BALL - swing at this!
+                ctx.fillStyle = 'rgba(255, 30, 30, 0.9)';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // "HIT IT!" text
+                ctx.font = 'bold 18px Arial';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText('⚾ HIT IT!', ballCamX, finalBallY - radius - 8);
+                ctx.textAlign = 'left';
+            } else {
+                // Approaching ball - orange
+                ctx.fillStyle = 'rgba(255, 150, 50, 0.7)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Show ball speed indicator (faster = more red trail)
+            if (zProgress < 0.8 && zProgress > 0.1) {
+                ctx.beginPath();
+                ctx.moveTo(ballCamX, finalBallY - radius);
+                ctx.lineTo(ballCamX, finalBallY - radius - 20 * (1 - zProgress));
+                ctx.strokeStyle = 'rgba(255, 100, 50, 0.4)';
+                ctx.lineWidth = radius * 0.8;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+        }
     }
 
     /**
@@ -432,8 +536,9 @@ class CricketARGame {
 
         const ballVector = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
 
-        // Check collision with bat (distance-based, requires swinging)
-        const collision = this.bat.checkCollision(ballVector, 0.3);
+        // Check collision with bat (distance-based)
+        // INCREASED radius from 0.3 to 0.6 for easier hits
+        const collision = this.bat.checkCollision(ballVector, 0.6);
 
         if (collision && collision.hit) {
             this.hasHitThisDelivery = true;
@@ -456,11 +561,12 @@ class CricketARGame {
                 collision.swingVelocity.y ** 2
             );
 
-            // Hit direction from swing velocity (not bat pointing)
+            // Hit direction from swing velocity
+            // NOTE: physics.hit() negates Z internally, so positive Z here = forward
             const hitDirection = {
                 x: -collision.swingVelocity.x * 2.0, // Invert for mirror, amplify
-                y: Math.max(0.2, 0.6 - collision.swingVelocity.y * 0.4), // Height
-                z: 1.2 // Forward component
+                y: Math.max(0.2, 0.5 - collision.swingVelocity.y * 0.3), // Height
+                z: 2.0 // POSITIVE - physics will negate, making ball go forward
             };
 
             // Normalize direction vector
@@ -506,6 +612,11 @@ class CricketARGame {
             this.ui.showImpactEffect(camPanel.clientWidth / 2, camPanel.clientHeight / 2);
 
             console.log(`🏏 BAT HIT! Zone: ${collision.zone}, Speed: ${batSpeed.toFixed(1)}m/s, Timing: ${timingQuality} (${timingMultiplier}x)`);
+
+            // === Zoom out camera to track ball in direction of shot ===
+            if (this.renderer.controls) {
+                this.renderer.controls.zoomOutForBallTracking(hitDirection);
+            }
         }
     }
 
@@ -645,6 +756,11 @@ class CricketARGame {
         // Check for delivery completion
         if (this.state === 'batting') {
             this.checkDeliveryComplete();
+        }
+
+        // Update camera animations (smooth transitions)
+        if (this.renderer.controls) {
+            this.renderer.controls.update();
         }
 
         // Render 3D scene
@@ -812,6 +928,16 @@ class CricketARGame {
         this.ui.hideBallOverlay();
         this.ui.setBowlEnabled(true);
         this.batting.reset();
+
+        // Reset realistic batting systems
+        this.shotStateMachine.reset();
+        this.timingSystem.reset();
+        this.bat.resetShotState();
+
+        // === NEW: Zoom in camera for next delivery ===
+        if (this.renderer.controls) {
+            this.renderer.controls.zoomInForBatting();
+        }
 
         // Auto-bowl if enabled
         if (this.ui.isAutoBowlEnabled()) {
