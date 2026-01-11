@@ -4,7 +4,9 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js?v=63';
+import { CameraControls } from './cameraControls.js?v=73';
+import { StadiumLights } from './stadiumLights.js';
+import { StadiumEnvironment } from './stadiumEnvironment.js';
 
 export class Renderer {
     constructor() {
@@ -22,6 +24,14 @@ export class Renderer {
         this.ballTrail = [];
         this.innerCircle = null;
         this.outerCircle = null;
+
+        // Lighting
+        this.ambientLight = null;
+        this.sunLight = null;
+        this.stadiumLights = null;
+
+        // Environment
+        this.stadiumEnvironment = null;
 
         // Camera states
         this.cameraMode = 'pitch'; // 'pitch', 'inner', 'full'
@@ -71,6 +81,10 @@ export class Renderer {
         // Create cricket field with circles
         this.createField();
 
+        // Create stadium environment (seating, boundary, etc.)
+        this.stadiumEnvironment = new StadiumEnvironment(this.scene);
+        this.stadiumEnvironment.create();
+
         // Initialize camera controls AFTER camera is positioned
         // The controls will take over from this position
         this.controls = new CameraControls(this.camera, this.canvas);
@@ -88,24 +102,53 @@ export class Renderer {
     }
 
     /**
-     * Add lighting to scene - Enhanced for better visibility
+     * Add lighting to scene - Day mode with optional stadium lights
      */
     addLights() {
-        // Strong ambient light to ensure everything is visible
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-        this.scene.add(ambientLight);
+        // Ambient light (day mode - bright)
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        this.scene.add(this.ambientLight);
 
-        // Directional light from above
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(50, 100, 50);
-        this.scene.add(dirLight);
+        // Directional light (sun)
+        this.sunLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        this.sunLight.position.set(50, 100, 50);
+        this.scene.add(this.sunLight);
 
         // Hemisphere light for natural outdoor lighting
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         hemiLight.position.set(0, 50, 0);
         this.scene.add(hemiLight);
 
-        console.log('💡 Lights added: Ambient (1.0), Directional (0.8), Hemisphere (0.6)');
+        // Create stadium lights (initially off)
+        this.stadiumLights = new StadiumLights(this.scene);
+        this.stadiumLights.create();
+
+        console.log('💡 Day mode active. Stadium lights OFF.');
+    }
+
+    /**
+     * Toggle stadium lights (day/night mode)
+     */
+    toggleStadiumLights() {
+        if (!this.stadiumLights) return false;
+
+        const isNight = this.stadiumLights.toggle();
+
+        if (isNight) {
+            // Night mode - darker ambient, darker background
+            this.ambientLight.intensity = 0.15;
+            this.sunLight.intensity = 0;
+            this.scene.background = new THREE.Color(0x0a1520); // Dark blue night sky
+            console.log('🌙 Night mode: Stadium lights ON');
+        } else {
+            // Day mode - brighter ambient, green background
+            this.ambientLight.intensity = 0.7;
+            this.sunLight.intensity = 0.9;
+            this.scene.background = new THREE.Color(0x1a3320); // Green day sky
+            console.log('☀️ Day mode: Stadium lights OFF');
+        }
+
+        return isNight;
     }
 
     /**

@@ -195,6 +195,11 @@ export class Physics {
     hit(direction, batSpeed = 5, zoneMultiplier = 1.0, deflection = 0, bowlSpeed = 30, launchAngle = 22, timingMultiplier = 1.0) {
         let { x, y, z } = direction;
 
+        // === FIX: RESET BALL VELOCITY ===
+        // This prevents incoming ball momentum from overpowering hit direction
+        this.ballBody.velocity.set(0, 0, 0);
+        this.ballBody.angularVelocity.set(0, 0, 0);
+
         // Apply edge deflection
         x += deflection;
 

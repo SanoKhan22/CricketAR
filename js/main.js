@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=63';
-import { HandTracking } from './handTracking.js?v=63';
-import { Renderer } from './renderer.js?v=63';
-import { Physics } from './physics.js?v=63';
-import { Bowling } from './bowling.js?v=63';
-import { Batting } from './batting.js?v=63';
-import { Bat } from './bat.js?v=63'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=63';
-import { ShotStateMachine } from './shotStateMachine.js?v=63';
-import { TimingSystem } from './timingSystem.js?v=63';
+import { Camera } from './camera.js?v=73';
+import { HandTracking } from './handTracking.js?v=73';
+import { Renderer } from './renderer.js?v=73';
+import { Physics } from './physics.js?v=73';
+import { Bowling } from './bowling.js?v=73';
+import { Batting } from './batting.js?v=73';
+import { Bat } from './bat.js?v=73'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=73';
+import { ShotStateMachine } from './shotStateMachine.js?v=73';
+import { TimingSystem } from './timingSystem.js?v=73';
 
 class CricketARGame {
     constructor() {
@@ -204,6 +204,13 @@ class CricketARGame {
 
         document.getElementById('show-trail').addEventListener('change', (e) => {
             this.bat.setTrailVisible(e.target.checked);
+        });
+
+        // Stadium lights toggle
+        document.getElementById('toggle-lights').addEventListener('click', () => {
+            const isNight = this.renderer.toggleStadiumLights();
+            const btn = document.getElementById('toggle-lights');
+            btn.textContent = isNight ? '🌙 Lights: ON' : '💡 Lights: OFF';
         });
 
         console.log('Hit controls initialized: SPACE to hit, Arrow keys for direction');
@@ -561,12 +568,17 @@ class CricketARGame {
                 collision.swingVelocity.y ** 2
             );
 
-            // Hit direction from swing velocity
-            // NOTE: physics.hit() negates Z internally, so positive Z here = forward
+            // Get shot type based on hand movement (from batting.js)
+            const ballPos = this.physics.getBallPosition();
+            const shot = this.batting.calculateShot(ballPos);
+
+            // === FIX: USE SHOT DIRECTION FROM BATTING.JS ===
+            // Shot defines base direction (straight, cover, pull, etc.)
+            // Swing velocity adds small variation
             const hitDirection = {
-                x: -collision.swingVelocity.x * 2.0, // Invert for mirror, amplify
-                y: Math.max(0.2, 0.5 - collision.swingVelocity.y * 0.3), // Height
-                z: 2.0 // POSITIVE - physics will negate, making ball go forward
+                x: shot.direction.x + (-collision.swingVelocity.x * 0.3),
+                y: shot.direction.y,
+                z: Math.max(shot.direction.z, 1.5) // Ensure forward, at least 1.5
             };
 
             // Normalize direction vector
@@ -579,7 +591,7 @@ class CricketARGame {
             hitDirection.y /= mag;
             hitDirection.z /= mag;
 
-            // === NEW EXIT VELOCITY PHYSICS ===
+            // === EXIT VELOCITY PHYSICS ===
             const batSpeed = collision.batSpeed || 5;
             const zoneMultiplier = collision.zoneMultiplier || 1.0;
             const deflection = collision.deflection || 0;
@@ -590,12 +602,15 @@ class CricketARGame {
             const bowlSpeed = this.currentBowlSpeed || 30;
 
             // Get launch angle from shot type
-            const shot = this.batting.calculateShot(this.physics.getBallPosition());
             const launchAngle = shot.launchAngle || 22;
 
-            // Apply hit using CORRECTED exit velocity physics
+            // Apply hit using exit velocity physics
             // Parameters: direction, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier
             this.physics.hit(hitDirection, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier);
+
+            // Log shot name
+            console.log(`🏏 Shot: ${shot.name} → direction (${hitDirection.x.toFixed(2)}, ${hitDirection.y.toFixed(2)}, ${hitDirection.z.toFixed(2)})`);
+
 
             // Show hit message with timing quality
             const zoneDisplay = `${collision.zone.toUpperCase()}! ${timingQuality} timing - ${batSpeed.toFixed(1)}m/s`;
@@ -827,6 +842,9 @@ class CricketARGame {
         this.score += runs;
         this.ballsFaced++;
         this.ui.updateScore(this.score, this.ballsFaced);
+
+        // Update stadium scoreboard
+        this.renderer.stadiumEnvironment.updateScore(this.score, this.ballsFaced);
 
         // Show result
         let resultText = `${distance.toFixed(1)}m`;
