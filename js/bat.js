@@ -251,9 +251,9 @@ export class Bat {
         this.batGroup.rotation.x = rotX;
         this.batGroup.rotation.y = 0;
 
-        // Simple ground check
-        if (this.batGroup.position.y < 0.5) {
-            this.batGroup.position.y = 0.5;
+        // Simple ground check - increased height for better visibility
+        if (this.batGroup.position.y < 1.5) {
+            this.batGroup.position.y = 1.5;
         }
 
         // === STEP 4: Swing Detection ===
