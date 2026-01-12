@@ -11,6 +11,7 @@ export class StadiumLights {
         this.lights = [];
         this.towers = [];
         this.isEnabled = false; // Start with lights off (day mode)
+        this.ambientLight = null; // Ambient light for night mode
     }
 
     /**
@@ -29,6 +30,10 @@ export class StadiumLights {
         towerPositions.forEach((pos, index) => {
             this.createLightTower(pos, index);
         });
+
+        // Create ambient light for night mode (starts off)
+        this.ambientLight = new THREE.AmbientLight(0xffd580, 0); // Warm color, 0 intensity initially
+        this.scene.add(this.ambientLight);
 
         console.log(`✨ Created ${this.towers.length} light towers with ${this.lights.length} spotlights`);
     }
@@ -100,8 +105,15 @@ export class StadiumLights {
         fixture.rotation.x = Math.PI / 4; // Angled down
         this.scene.add(fixture);
 
-        // SpotLight
-        const spotlight = new THREE.SpotLight(0xfff8e1, 0, 100, Math.PI / 6, 0.3, 1);
+        // SpotLight - warmer color, less intense
+        const spotlight = new THREE.SpotLight(
+            0xffd580,  // Warmer yellow instead of white
+            0,         // Start with 0 intensity
+            100,       // Distance
+            Math.PI / 6,  // Angle
+            0.3,       // Penumbra (soft edges)
+            1          // Decay
+        );
         spotlight.position.set(x, y, z);
 
         // Target the center of the pitch
@@ -113,25 +125,22 @@ export class StadiumLights {
 
         this.scene.add(spotlight);
 
-        // === LIGHT BEAM CONE (ultra-lightweight) ===
-        const beamHeight = 50; // From light to ground
-        const beamRadius = 15; // Spread at ground level
-        const beamGeometry = new THREE.ConeGeometry(beamRadius, beamHeight, 8, 1, true);
-        const beamMaterial = new THREE.MeshBasicMaterial({
-            color: 0xffeeaa,
+        // Small glow sphere near light (just to show it's on)
+        const glowRadius = 7; // Small radius (5-10m as requested)
+        const glowGeometry = new THREE.SphereGeometry(glowRadius, 16, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffd580,
             transparent: true,
-            opacity: 0.15, // Very subtle
-            side: THREE.DoubleSide,
-            depthWrite: false // Prevent z-fighting
+            opacity: 0.05, // Very subtle
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
         });
-        const lightBeam = new THREE.Mesh(beamGeometry, beamMaterial);
+        const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+        glowSphere.position.set(x, y, z);
+        glowSphere.visible = false; // Start hidden
+        this.scene.add(glowSphere);
 
-        // Position beam pointing down from light
-        lightBeam.position.set(x, y - beamHeight / 2, z);
-        lightBeam.visible = false; // Start hidden
-        this.scene.add(lightBeam);
-
-        this.lights.push({ spotlight, fixture, fixtureMaterial, lightBeam });
+        this.lights.push({ spotlight, fixture, fixtureMaterial, glowSphere });
     }
 
     /**
@@ -140,16 +149,16 @@ export class StadiumLights {
     toggle() {
         this.isEnabled = !this.isEnabled;
 
-        this.lights.forEach(({ spotlight, fixtureMaterial, lightBeam }) => {
+        this.lights.forEach(({ spotlight, fixtureMaterial, glowSphere }) => {
             spotlight.visible = this.isEnabled;
-            lightBeam.visible = this.isEnabled; // Show/hide beam with light
+            glowSphere.visible = this.isEnabled; // Show/hide glow with light
 
             // Update fixture appearance
             if (this.isEnabled) {
-                // Light on - emit warm glow
-                spotlight.intensity = 3.5;
+                // Light on - warm glow, lower intensity
+                spotlight.intensity = 2.0;  // Reduced from 3.5
                 fixtureMaterial.emissive.setHex(0xffaa00);
-                fixtureMaterial.emissiveIntensity = 0.8;
+                fixtureMaterial.emissiveIntensity = 0.6;  // Reduced from 0.8
             } else {
                 // Light off
                 spotlight.intensity = 0;
@@ -157,6 +166,11 @@ export class StadiumLights {
                 fixtureMaterial.emissiveIntensity = 0;
             }
         });
+
+        // Toggle ambient light for night mode
+        if (this.ambientLight) {
+            this.ambientLight.intensity = this.isEnabled ? 0.3 : 0; // Subtle ambient light
+        }
 
         console.log(`💡 Stadium lights: ${this.isEnabled ? 'ON' : 'OFF'}`);
         return this.isEnabled;
