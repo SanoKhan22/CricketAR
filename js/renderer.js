@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js?v=82';
+import { CameraControls } from './cameraControls.js?v=86';
 import { StadiumLights } from './stadiumLights.js';
 import { StadiumEnvironment } from './stadiumEnvironment.js';
 
@@ -55,7 +55,7 @@ export class Renderer {
 
         // Create scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a3320); // Darker green
+        this.scene.background = new THREE.Color(0x87CEEB); // Sky blue (day mode)
 
         // Create camera - closer view for pitch
         const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
@@ -141,10 +141,10 @@ export class Renderer {
             this.scene.background = new THREE.Color(0x0a1520); // Dark blue night sky
             console.log('🌙 Night mode: Stadium lights ON');
         } else {
-            // Day mode - brighter ambient, green background
+            // Day mode - brighter ambient, blue sky
             this.ambientLight.intensity = 0.7;
             this.sunLight.intensity = 0.9;
-            this.scene.background = new THREE.Color(0x1a3320); // Green day sky
+            this.scene.background = new THREE.Color(0x87CEEB); // Sky blue (realistic day sky)
             console.log('☀️ Day mode: Stadium lights OFF');
         }
 
@@ -155,8 +155,8 @@ export class Renderer {
      * Create cricket field with inner and outer circles
      */
     createField() {
-        // Full ground (65m radius = ~70 yards boundary)
-        const groundGeometry = new THREE.CircleGeometry(65, 64);
+        // Full ground (67m radius - extends past 66m boundary rope to hide seam)
+        const groundGeometry = new THREE.CircleGeometry(67, 64);
         const groundMaterial = new THREE.MeshLambertMaterial({
             color: 0x2d5a27,
             side: THREE.DoubleSide
@@ -172,8 +172,7 @@ export class Renderer {
         // 30-yard circle line (white)
         this.createCircleLine(27.4, 0xffffff, 0.3);
 
-        // Boundary line (65m)
-        this.createCircleLine(65, 0xffffff, 0.5);
+        // Note: Boundary rope is at 66m (stadiumEnvironment.js)
 
         // Pitch (brown strip between wickets) - must be ABOVE the circles
         this.createPitch();

@@ -124,10 +124,10 @@ export class Physics {
     }
 
     /**
-     * Check if ball crossed boundary
+     * Check if ball crossed boundary (66m rope)
      */
     checkBoundary(distance) {
-        return distance > 60;
+        return distance > 66; // Boundary rope position
     }
     resetBall(x = 0, y = 2, z = -10) {
         this.ballBody.position.set(x, y, z);
