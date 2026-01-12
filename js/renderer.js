@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js?v=76';
+import { CameraControls } from './cameraControls.js?v=77';
 import { StadiumLights } from './stadiumLights.js';
 import { StadiumEnvironment } from './stadiumEnvironment.js';
 

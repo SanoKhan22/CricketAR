@@ -210,57 +210,81 @@ export class StadiumEnvironment {
     }
 
     /**
-     * Create modern stadium roof canopy
-     * Cable-supported partial roof over upper tier
+     * Create partial roof section (rear stands only)
+     * Smaller coverage to avoid blocking camera view
      */
     createRoof() {
-        const roofRadius = 82; // Slightly beyond upper tier
-        const roofHeight = 18; // High above seating
-        const roofThickness = 0.3;
+        const roofInnerRadius = 70; // Doesn't cover playing area
+        const roofOuterRadius = 82; // Beyond upper tier
+        const roofHeight = 18;
 
-        // Main roof canopy (circular ring shape)
-        const roofGeometry = new THREE.RingGeometry(60, roofRadius, 64);
+        // Partial roof section (only rear half - 180 degrees)
+        const roofStartAngle = Math.PI / 2; // Side
+        const roofEndAngle = roofStartAngle + Math.PI; // 180 degrees coverage
+
+        // Create partial ring geometry using Shape
+        const roofShape = new THREE.Shape();
+        const segments = 32;
+
+        // Outer arc
+        for (let i = 0; i <= segments; i++) {
+            const angle = roofStartAngle + (i / segments) * (roofEndAngle - roofStartAngle);
+            const x = Math.cos(angle) * roofOuterRadius;
+            const y = Math.sin(angle) * roofOuterRadius;
+            if (i === 0) roofShape.moveTo(x, y);
+            else roofShape.lineTo(x, y);
+        }
+
+        // Inner arc (reverse)
+        for (let i = segments; i >= 0; i--) {
+            const angle = roofStartAngle + (i / segments) * (roofEndAngle - roofStartAngle);
+            const x = Math.cos(angle) * roofInnerRadius;
+            const y = Math.sin(angle) * roofInnerRadius;
+            roofShape.lineTo(x, y);
+        }
+
+        const roofGeometry = new THREE.ShapeGeometry(roofShape);
         const roofMaterial = new THREE.MeshLambertMaterial({
             color: 0x333333,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.85
         });
+
         const roof = new THREE.Mesh(roofGeometry, roofMaterial);
         roof.rotation.x = -Math.PI / 2;
         roof.position.y = roofHeight;
         this.scene.add(roof);
         this.elements.push(roof);
 
-        // Roof support pillars (8 around stadium)
-        const pillarCount = 8;
+        // Support pillars (4 pillars only on covered section)
+        const pillarCount = 4;
         const pillarGeometry = new THREE.CylinderGeometry(0.5, 0.6, roofHeight - 7, 8);
         const pillarMaterial = new THREE.MeshLambertMaterial({ color: 0x555555 });
 
         for (let i = 0; i < pillarCount; i++) {
-            const angle = (i / pillarCount) * Math.PI * 2;
+            const angle = roofStartAngle + (i / (pillarCount - 1)) * (roofEndAngle - roofStartAngle);
             const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
             pillar.position.set(
-                Math.cos(angle) * (roofRadius - 1),
+                Math.cos(angle) * (roofOuterRadius - 1),
                 (roofHeight - 7) / 2 + 7,
-                Math.sin(angle) * (roofRadius - 1)
+                Math.sin(angle) * (roofOuterRadius - 1)
             );
             this.scene.add(pillar);
             this.elements.push(pillar);
         }
 
-        // Cable supports (from pillars to center ring)
+        // Cable supports (only for covered section)
         const cableGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
         const cableMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
 
         for (let i = 0; i < pillarCount; i++) {
-            const angle = (i / pillarCount) * Math.PI * 2;
-            const outerX = Math.cos(angle) * (roofRadius - 1);
-            const outerZ = Math.sin(angle) * (roofRadius - 1);
-            const innerX = Math.cos(angle) * 60;
-            const innerZ = Math.sin(angle) * 60;
+            const angle = roofStartAngle + (i / (pillarCount - 1)) * (roofEndAngle - roofStartAngle);
+            const outerX = Math.cos(angle) * (roofOuterRadius - 1);
+            const outerZ = Math.sin(angle) * (roofOuterRadius - 1);
+            const innerX = Math.cos(angle) * roofInnerRadius;
+            const innerZ = Math.sin(angle) * roofInnerRadius;
 
-            // Calculate cable length and position
             const dx = innerX - outerX;
             const dz = innerZ - outerZ;
             const length = Math.sqrt(dx * dx + dz * dz);
@@ -278,11 +302,19 @@ export class StadiumEnvironment {
             this.elements.push(cable);
         }
 
-        // Center tension ring
-        const ringGeometry = new THREE.TorusGeometry(60, 0.3, 8, 32);
-        const ringMaterial = new THREE.MeshLambertMaterial({ color: 0x666666 });
-        const tensionRing = new THREE.Mesh(ringGeometry, ringMaterial);
-        tensionRing.rotation.x = Math.PI / 2;
+        // Partial tension ring (only for covered arc)
+        const ringCurve = new THREE.EllipseCurve(
+            0, 0,
+            roofInnerRadius, roofInnerRadius,
+            roofStartAngle, roofEndAngle,
+            false,
+            0
+        );
+        const ringPoints = ringCurve.getPoints(50);
+        const ringGeometry = new THREE.BufferGeometry().setFromPoints(ringPoints);
+        const ringMaterial = new THREE.LineBasicMaterial({ color: 0x666666, linewidth: 3 });
+        const tensionRing = new THREE.Line(ringGeometry, ringMaterial);
+        tensionRing.rotation.x = -Math.PI / 2;
         tensionRing.position.y = roofHeight;
         this.scene.add(tensionRing);
         this.elements.push(tensionRing);
