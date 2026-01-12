@@ -112,7 +112,26 @@ export class StadiumLights {
         spotlight.visible = false;
 
         this.scene.add(spotlight);
-        this.lights.push({ spotlight, fixture, fixtureMaterial });
+
+        // === LIGHT BEAM CONE (ultra-lightweight) ===
+        const beamHeight = 50; // From light to ground
+        const beamRadius = 15; // Spread at ground level
+        const beamGeometry = new THREE.ConeGeometry(beamRadius, beamHeight, 8, 1, true);
+        const beamMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffeeaa,
+            transparent: true,
+            opacity: 0.15, // Very subtle
+            side: THREE.DoubleSide,
+            depthWrite: false // Prevent z-fighting
+        });
+        const lightBeam = new THREE.Mesh(beamGeometry, beamMaterial);
+
+        // Position beam pointing down from light
+        lightBeam.position.set(x, y - beamHeight / 2, z);
+        lightBeam.visible = false; // Start hidden
+        this.scene.add(lightBeam);
+
+        this.lights.push({ spotlight, fixture, fixtureMaterial, lightBeam });
     }
 
     /**
@@ -121,8 +140,9 @@ export class StadiumLights {
     toggle() {
         this.isEnabled = !this.isEnabled;
 
-        this.lights.forEach(({ spotlight, fixtureMaterial }) => {
+        this.lights.forEach(({ spotlight, fixtureMaterial, lightBeam }) => {
             spotlight.visible = this.isEnabled;
+            lightBeam.visible = this.isEnabled; // Show/hide beam with light
 
             // Update fixture appearance
             if (this.isEnabled) {
