@@ -1,6 +1,8 @@
 /**
  * Cricket Bat Module - 3D bat with zone-based hit detection
  * 
+ * Uses GAME_CONFIG for zone multipliers and collision settings.
+ * 
  * Bat Zones:
  * - Handle (15%): For holding, no hit
  * - Shoulder (15%): Straight up shots, 0-1 runs
@@ -10,9 +12,13 @@
  */
 
 import * as THREE from 'three';
+import { GAME_CONFIG, getTimingQuality, getSpeedFactor } from './config.js';
 
 export class Bat {
     constructor() {
+        // Store config reference
+        this.config = GAME_CONFIG;
+
         // Bat dimensions (in game units)
         this.dimensions = {
             totalLength: 4.0,      // Total bat length
@@ -22,22 +28,26 @@ export class Bat {
             handleRadius: 0.08     // Handle radius
         };
 
-        // Zone percentages (from top to bottom)
+        // Get zone config
+        const { batZones } = this.config;
+
+        // Zone percentages (from top to bottom) - from config
         this.zones = {
-            handle: { start: 0, end: 0.15, name: 'Handle' },
-            shoulder: { start: 0.15, end: 0.30, name: 'Shoulder' },
-            middle: { start: 0.30, end: 0.65, name: 'Middle' },  // Sweet spot!
-            toe: { start: 0.65, end: 0.80, name: 'Toe' },
-            // Edges are detected by x-position, not y
+            handle: { start: batZones.handle.start, end: batZones.handle.end, name: 'Handle' },
+            shoulder: { start: batZones.shoulder.start, end: batZones.shoulder.end, name: 'Shoulder' },
+            middle: { start: batZones.middle.start, end: batZones.middle.end, name: 'Middle' },
+            lower: { start: batZones.lower.start, end: batZones.lower.end, name: 'Lower' },
+            toe: { start: batZones.toe.start, end: batZones.toe.end, name: 'Toe' }
         };
 
-        // Zone hit effects
+        // Zone hit effects - use config multipliers
         this.zoneEffects = {
-            handle: { power: 0, height: 0, description: 'No shot - handle!' },
-            shoulder: { power: 0.3, height: 0.8, description: 'Lofted to inner circle' },
-            middle: { power: 1.0, height: 0.5, description: 'Sweet spot - POWER!' },
-            toe: { power: 0.4, height: 0.2, description: 'Low shot along ground' },
-            edge: { power: 0.6, height: 0.4, description: 'Edge - behind wicket!' }
+            handle: { power: batZones.handle.multiplier, height: 0, description: 'No shot - handle!' },
+            shoulder: { power: batZones.shoulder.multiplier, height: 0.8, description: 'Lofted to inner circle' },
+            middle: { power: batZones.middle.multiplier, height: 0.5, description: 'Sweet spot - POWER!' },
+            lower: { power: batZones.lower.multiplier, height: 0.35, description: 'Lower blade contact' },
+            toe: { power: batZones.toe.multiplier, height: 0.2, description: 'Low shot along ground' },
+            edge: { power: batZones.edgeMultiplier, height: 0.4, description: 'Edge - behind wicket!' }
         };
 
         // 3D Objects
@@ -410,7 +420,7 @@ export class Bat {
 
     /**
      * Check if ball collides with bat using distance-based detection
-     * Following Bat Fixation Guide - Step 3
+     * Uses GAME_CONFIG for collision thresholds and timing quality.
      * 
      * @param {THREE.Vector3} ballPosition - Ball position
      * @param {number} ballRadius - Ball radius
@@ -419,41 +429,29 @@ export class Bat {
     checkCollision(ballPosition, ballRadius = 0.3) {
         if (!this.batGroup) return null;
 
-        // === REVISED COLLISION DETECTION ===
+        const { collision } = this.config;
 
         // Calculate per-axis distances
         const dx = ballPosition.x - this.batGroup.position.x;
         const dy = ballPosition.y - this.batGroup.position.y;
-        const dz = ballPosition.z - this.batGroup.position.z; // Bat at Z=8
+        const dz = ballPosition.z - this.batGroup.position.z;
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-        // INCREASED collision threshold - 1.8m base + ball radius for very forgiving detection
-        const collisionDistance = 1.8 + ballRadius;
+        // Use config collision threshold (more skill-based)
+        const collisionDistance = collision.hitThreshold + ballRadius;
 
-        // Log when ball is near bat Z (within 1.5m)
+        // Log when ball is near bat Z (for debugging)
         if (Math.abs(dz) < 1.5) {
-            console.log(`🎯 Collision: dx=${dx.toFixed(2)}, dy=${dy.toFixed(2)}, dz=${dz.toFixed(2)}, dist=${distance.toFixed(2)}m, threshold=${collisionDistance}m`);
+            console.log(`🎯 Ball: dist=${distance.toFixed(2)}m, threshold=${collisionDistance.toFixed(2)}m`);
         }
 
         // Check collision
         if (distance < collisionDistance) {
-            // === TIMING QUALITY (based on Z precision) ===
+            // === TIMING QUALITY from config ===
             const absDz = Math.abs(dz);
-            let timingQuality, timingMultiplier;
-
-            if (absDz <= 0.15) {
-                timingQuality = 'PERFECT';
-                timingMultiplier = 1.2;
-            } else if (absDz <= 0.25) {
-                timingQuality = 'Good';
-                timingMultiplier = 1.0;
-            } else if (absDz <= 0.35) {
-                timingQuality = 'Okay';
-                timingMultiplier = 0.7;
-            } else {
-                timingQuality = 'Poor';
-                timingMultiplier = 0.4;
-            }
+            const timing = getTimingQuality(absDz);
+            const timingQuality = timing.quality;
+            const timingMultiplier = timing.multiplier;
 
             // Calculate bat speed in m/s
             // swingVelocity is per-frame, multiply by ~25 and CAP at 20 m/s max

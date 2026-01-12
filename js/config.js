@@ -1,0 +1,424 @@
+/**
+ * Game Configuration - Centralized constants for Cricket AR
+ * 
+ * All physics, gameplay, and balance values in one place.
+ * This is the SINGLE SOURCE OF TRUTH for all game constants.
+ */
+
+export const GAME_CONFIG = {
+    // ===========================================
+    // FIELD DIMENSIONS
+    // ===========================================
+    field: {
+        // Boundary distances (meters from batting crease)
+        boundaryRope: 65,       // Where the rope is placed
+        innerCircle: 30,        // 30-yard circle (powerplay)
+        pitchLength: 22,        // Wicket to wicket
+
+        // Stadium visual size
+        groundRadius: 67,       // Visual ground size
+        stadiumRadius: 80       // Seating starts here
+    },
+
+    // ===========================================
+    // PHYSICS SETTINGS
+    // ===========================================
+    physics: {
+        gravity: -9.82,
+        ballMass: 0.163,        // Cricket ball weight in kg
+        ballRadius: 0.035,      // 35mm radius (visual: usually larger for visibility)
+
+        // Bounce behavior - realistic cricket ball physics
+        // Lower restitution = less vertical bounce, but horizontal momentum preserved
+        restitution: {
+            pitch: 0.30,        // Cricket pitch: moderate bounce
+            outfield: 0.25,     // Grass: slightly lower bounce
+            boundary: 0.15      // Cushion: minimal bounce
+        },
+        friction: {
+            pitch: 0.35,        // Pitch has moderate grip
+            outfield: 0.30,     // Grass has less friction
+            rolling: 8.0        // Ball slows gradually when rolling
+        },
+
+        // Air resistance
+        airDrag: 0.015,         // Slight air resistance for realism
+
+        // Exit velocity calculation
+        // ExitVelocity = sqrt((BatSpeed² × batEnergy) + (BowlSpeed × reboundEnergy)) × zone × timing × powerBoost
+        batEnergyCoefficient: 0.28,     // Controls how bat speed affects power
+        reboundEnergyCoefficient: 0.06, // Ball momentum contribution
+        powerBoost: 1.85                // Overall multiplier to reach realistic distances
+    },
+
+    // ===========================================
+    // BAT PHYSICS - Zone effects on trajectory
+    // ===========================================
+    batZones: {
+        // === Vertical zones (from handle to toe) ===
+        // Each zone affects: power, launch angle modifier, and description
+        handle: {
+            start: 0, end: 0.15,
+            multiplier: 0.05,
+            angleModifier: 0,        // No shot
+            description: 'No shot - handle!'
+        },
+        shoulder: {
+            start: 0.15, end: 0.30,
+            multiplier: 0.30,
+            angleModifier: +20,      // Ball pops UP (high catch risk)
+            description: 'Top edge - pops up!'
+        },
+        middle: {
+            start: 0.30, end: 0.65,
+            multiplier: 1.00,
+            angleModifier: 0,        // Clean hit - intended trajectory
+            description: 'Sweet spot - POWER!'
+        },
+        lower: {
+            start: 0.65, end: 0.85,
+            multiplier: 0.70,
+            angleModifier: -8,       // Ball goes DOWN (stays low)
+            description: 'Lower blade - stays low'
+        },
+        toe: {
+            start: 0.85, end: 1.00,
+            multiplier: 0.40,
+            angleModifier: -15,      // Ball drills into ground
+            description: 'Toe - jammed into ground'
+        },
+
+        // === Horizontal zones (edges) ===
+        edgeWidth: 0.08,            // 8% of blade width = edge
+        edgeMultiplier: 0.40,       // Reduced power
+        edgeDeflection: 0.7,        // Deflects sideways/backward
+        leftEdgeAngle: -60,         // Deflection to leg side
+        rightEdgeAngle: +60         // Deflection to off side
+    },
+
+    // ===========================================
+    // COLLISION DETECTION
+    // ===========================================
+    collision: {
+        // Distance thresholds (meters)
+        hitThreshold: 1.0,      // Bat-ball collision distance (SKILL-BASED)
+
+        // Timing zones (based on Z-axis precision)
+        perfectZone: 0.12,      // PERFECT timing
+        goodZone: 0.22,         // Good timing
+        okayZone: 0.35,         // Okay timing
+
+        // Timing multipliers
+        timingMultipliers: {
+            perfect: 1.30,      // Bonus for perfect timing
+            good: 1.0,          // Standard
+            okay: 0.65,         // Penalized
+            poor: 0.35          // Badly mistimed
+        },
+
+        // Bat speed categories (m/s)
+        batSpeedCategories: {
+            block: { max: 3, factor: 0.15 },      // Defensive
+            placement: { max: 6, factor: 0.45 },  // Nudge/guide
+            attacking: { max: 10, factor: 0.75 }, // Attack
+            power: { max: 15, factor: 1.0 },      // Big hit
+            maximum: { max: 20, factor: 1.25 }    // Maximum effort
+        }
+    },
+
+    // ===========================================
+    // SCORING - Single source of truth
+    // ===========================================
+    scoring: {
+        // Boundary definitions
+        boundaryRope: 65,           // Main boundary line (meters)
+
+        // === SCORING RULES ===
+        // SIX: Ball CLEARS boundary (>= 65m) WITHOUT bouncing first
+        // FOUR: Ball CROSSES boundary (>= 65m) AFTER bouncing
+        // 
+        // For balls that don't reach boundary:
+        // Distance-based running:
+        runThresholds: {
+            dot: 8,                 // 0-8m = 0 runs (stopped by fielder)
+            single: 22,             // 8-22m = 1 run
+            two: 40,                // 22-40m = 2 runs
+            three: 55,              // 40-55m = 3 runs
+            // 55-65m with bounce = 4 runs
+            // 65m+ or 55m+ without bounce = 6 runs
+        },
+
+        // Minimum distance for boundary decisions
+        nearBoundary: 55            // Near enough that bounce matters
+    },
+
+    // ===========================================
+    // CRICKET SHOTS - Shot definitions
+    // ===========================================
+    shots: {
+        // Defensive
+        'forward-defensive': {
+            name: 'Forward Defensive',
+            clockPosition: 12,
+            direction: { x: 0, y: 0.08, z: 0.25 },
+            power: 0.12,
+            launchAngle: 5,
+            isDefensive: true,
+            description: 'Dead bat - kills the ball'
+        },
+
+        // Straight shots
+        'straight-drive': {
+            name: 'Straight Drive',
+            clockPosition: 12,
+            direction: { x: 0, y: 0.55, z: 1.5 },
+            power: 0.95,
+            launchAngle: 24,
+            description: 'Classic drive past the bowler'
+        },
+        'lofted-straight': {
+            name: 'Lofted Straight',
+            clockPosition: 12,
+            direction: { x: 0, y: 0.8, z: 1.2 },
+            power: 0.92,
+            launchAngle: 38,
+            description: 'Over the bowler\'s head'
+        },
+
+        // Off-side shots
+        'cover-drive': {
+            name: 'Cover Drive',
+            clockPosition: 1.5,
+            direction: { x: 0.9, y: 0.45, z: 1.2 },
+            power: 0.90,
+            launchAngle: 20,
+            description: 'Elegant through covers'
+        },
+        'square-cut': {
+            name: 'Square Cut',
+            clockPosition: 3,
+            direction: { x: 1.6, y: 0.30, z: 0.25 },
+            power: 0.85,
+            launchAngle: 26,
+            description: 'Horizontal slash to point'
+        },
+        'late-cut': {
+            name: 'Late Cut',
+            clockPosition: 4.5,
+            direction: { x: 1.1, y: 0.18, z: -0.5 },
+            power: 0.50,
+            launchAngle: 15,
+            description: 'Delicate past the keeper'
+        },
+
+        // Leg-side shots
+        'on-drive': {
+            name: 'On Drive',
+            clockPosition: 10.5,
+            direction: { x: -0.6, y: 0.50, z: 1.3 },
+            power: 0.90,
+            launchAngle: 22,
+            description: 'Through mid-on'
+        },
+        'flick': {
+            name: 'Flick',
+            clockPosition: 9,
+            direction: { x: -1.1, y: 0.38, z: 0.85 },
+            power: 0.75,
+            launchAngle: 25,
+            description: 'Wristy through midwicket'
+        },
+        'pull-shot': {
+            name: 'Pull Shot',
+            clockPosition: 8.5,
+            direction: { x: -1.5, y: 0.42, z: 0.35 },
+            power: 0.95,
+            launchAngle: 30,
+            description: 'Punishing short ball'
+        },
+        'hook': {
+            name: 'Hook Shot',
+            clockPosition: 8,
+            direction: { x: -1.7, y: 0.65, z: 0.18 },
+            power: 0.88,
+            launchAngle: 42,
+            description: 'High over square leg'
+        },
+        'sweep': {
+            name: 'Sweep',
+            clockPosition: 7.5,
+            direction: { x: -1.4, y: 0.18, z: 0.4 },
+            power: 0.68,
+            launchAngle: 12,
+            description: 'Low sweep to fine leg'
+        },
+
+        // Miss
+        'miss': {
+            name: 'Miss!',
+            clockPosition: 0,
+            direction: { x: 0, y: 0, z: 0 },
+            power: 0,
+            launchAngle: 0,
+            description: 'Missed completely'
+        }
+    },
+
+    // ===========================================
+    // BOWLING SETTINGS
+    // ===========================================
+    bowling: {
+        speeds: {
+            slow: { ms: 22, kmh: 80 },
+            medium: { ms: 30, kmh: 108 },
+            fast: { ms: 38, kmh: 137 },
+            express: { ms: 44, kmh: 158 }
+        },
+        lines: {
+            'outside-off': -0.9,
+            'off': -0.45,
+            'middle': 0,
+            'leg': 0.45,
+            'outside-leg': 0.9
+        },
+        lengths: {
+            'short': 0.15,
+            'short-of-good': 0.35,
+            'good': 0.55,
+            'full': 0.75,
+            'yorker': 0.95
+        }
+    },
+
+    // ===========================================
+    // HAND TRACKING
+    // ===========================================
+    handTracking: {
+        swingThreshold: 1.2,    // Minimum speed for swing detection
+        frameSkip: 1,           // Process every N frames
+
+        // Shot direction from hand movement
+        directionThresholds: {
+            offside: 0.5,
+            onside: -0.5,
+            lofted: -0.7,
+            grounded: 0.25
+        }
+    },
+
+    // ===========================================
+    // HITTING ZONE (where ball can be hit)
+    // ===========================================
+    hittingZone: {
+        minZ: 5,            // Front of zone
+        maxZ: 13,           // Back of zone
+        minY: 0,            // Ground level
+        maxY: 4.5,          // Maximum height
+        batZ: 8             // Bat default Z position
+    }
+};
+
+// ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+
+/**
+ * Get shot definition by name
+ */
+export function getShot(name) {
+    return GAME_CONFIG.shots[name] || GAME_CONFIG.shots['miss'];
+}
+
+/**
+ * Calculate runs from distance and bounce status
+ * 
+ * RULES:
+ * - FOUR: Ball bounces, then crosses/touches boundary
+ * - SIX: Ball crosses boundary without bouncing (clean hit over rope)
+ * - Otherwise: Distance-based running
+ */
+export function calculateRuns(distance, hasBounced, shotName = '') {
+    const { scoring } = GAME_CONFIG;
+
+    // Defensive shots never score boundaries
+    if (shotName === 'Forward Defensive' || shotName === 'Miss!') {
+        return 0;
+    }
+
+    // BOUNDARY DECISIONS
+    if (distance >= scoring.boundaryRope) {
+        // Ball crossed the rope
+        if (hasBounced) {
+            return 4;  // FOUR - bounced before crossing
+        } else {
+            return 6;  // SIX - clean over the rope
+        }
+    }
+
+    // Near boundary (55-65m) - also check bounce
+    if (distance >= scoring.nearBoundary) {
+        // Close to boundary
+        if (hasBounced) {
+            return 4;  // Rolling/bouncing to boundary = 4
+        } else {
+            return 6;  // Clean carry = 6 (it's going over)
+        }
+    }
+
+    // RUNNING SCORES (ball didn't reach boundary)
+    const { runThresholds } = scoring;
+    if (distance < runThresholds.dot) return 0;
+    if (distance < runThresholds.single) return 1;
+    if (distance < runThresholds.two) return 2;
+    if (distance < runThresholds.three) return 3;
+
+    // 40-55m = possible 3-4, depends on placement
+    return 3;
+}
+
+/**
+ * Get timing quality and multiplier based on Z-distance from optimal contact
+ */
+export function getTimingQuality(distanceFromOptimal) {
+    const { collision } = GAME_CONFIG;
+
+    if (distanceFromOptimal <= collision.perfectZone) {
+        return { quality: 'PERFECT', multiplier: collision.timingMultipliers.perfect };
+    }
+    if (distanceFromOptimal <= collision.goodZone) {
+        return { quality: 'Good', multiplier: collision.timingMultipliers.good };
+    }
+    if (distanceFromOptimal <= collision.okayZone) {
+        return { quality: 'Okay', multiplier: collision.timingMultipliers.okay };
+    }
+    return { quality: 'Poor', multiplier: collision.timingMultipliers.poor };
+}
+
+/**
+ * Get speed factor from bat swing speed
+ */
+export function getSpeedFactor(batSpeed) {
+    const { batSpeedCategories } = GAME_CONFIG.collision;
+
+    if (batSpeed >= batSpeedCategories.maximum.max) return batSpeedCategories.maximum.factor;
+    if (batSpeed >= batSpeedCategories.power.max) return batSpeedCategories.power.factor;
+    if (batSpeed >= batSpeedCategories.attacking.max) return batSpeedCategories.attacking.factor;
+    if (batSpeed >= batSpeedCategories.placement.max) return batSpeedCategories.placement.factor;
+    return batSpeedCategories.block.factor;
+}
+
+/**
+ * Get launch angle modifier based on bat zone
+ * Returns angle adjustment in degrees
+ */
+export function getZoneAngleModifier(zoneName) {
+    const zone = GAME_CONFIG.batZones[zoneName];
+    return zone?.angleModifier || 0;
+}
+
+/**
+ * Check if ball crossed boundary
+ */
+export function checkBoundary(distance) {
+    return distance >= GAME_CONFIG.scoring.boundaryRope;
+}

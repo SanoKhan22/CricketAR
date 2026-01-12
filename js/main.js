@@ -4,16 +4,17 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=86';
-import { HandTracking } from './handTracking.js?v=86';
-import { Renderer } from './renderer.js?v=86';
-import { Physics } from './physics.js?v=86';
-import { Bowling } from './bowling.js?v=86';
-import { Batting } from './batting.js?v=86';
-import { Bat } from './bat.js?v=86'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=86';
-import { ShotStateMachine } from './shotStateMachine.js?v=86';
-import { TimingSystem } from './timingSystem.js?v=86';
+import { Camera } from './camera.js?v=90';
+import { HandTracking } from './handTracking.js?v=90';
+import { Renderer } from './renderer.js?v=90';
+import { Physics } from './physics.js?v=90';
+import { Bowling } from './bowling.js?v=90';
+import { Batting } from './batting.js?v=90';
+import { Bat } from './bat.js?v=90'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=90';
+import { ShotStateMachine } from './shotStateMachine.js?v=90';
+import { TimingSystem } from './timingSystem.js?v=90';
+import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
     constructor() {
@@ -218,6 +219,7 @@ class CricketARGame {
 
     /**
      * Execute a hit with current direction - uses authentic cricket shots
+     * For keyboard/click hits (simulated bat swing)
      */
     executeHit() {
         if (!this.physics.isInHittingZone()) {
@@ -235,43 +237,52 @@ class CricketARGame {
         // Map direction to authentic cricket shot
         let shotData = this.getAuthenticShot(dir, speed);
 
-        // Apply hit with shot power
-        const power = 0.5 + Math.random() * 0.5 * shotData.power;
-        this.physics.hit(shotData.direction, power);
+        // Calculate bat speed for keyboard hits (8-18 m/s based on shot power)
+        // Power shots get higher bat speed
+        const baseBatSpeed = 8; // Minimum bat speed
+        const maxBatSpeed = 18; // Maximum bat speed
+        const batSpeed = baseBatSpeed + (maxBatSpeed - baseBatSpeed) * shotData.power;
 
-        // Display shot name with clock position
-        const clockInfo = `${shotData.name} (${shotData.clockPosition} o'clock)`;
+        // Zone multiplier (1.0 for keyboard hits - assume sweet spot)
+        const zoneMultiplier = 1.0;
+
+        // Timing (slight random variation for keyboard hits: 0.8 - 1.1)
+        const timingMultiplier = 0.8 + Math.random() * 0.3;
+
+        // Get bowl speed for momentum calculation
+        const bowlSpeed = this.currentBowlSpeed || 30;
+
+        // Apply hit with full physics parameters
+        this.physics.hit(
+            shotData.direction,
+            batSpeed,
+            zoneMultiplier,
+            0,  // deflection
+            bowlSpeed,
+            shotData.launchAngle || 22,
+            timingMultiplier
+        );
+
+        // Display shot name
         this.ui.showShotResult(shotData.name);
+        this.ui.updateSwingSpeed(batSpeed);
 
         // Show impact effect
         const camPanel = document.getElementById('camera-panel');
         this.ui.showImpactEffect(camPanel.clientWidth / 2, camPanel.clientHeight / 2);
 
-        console.log('🏏 HIT!', clockInfo, 'Direction:', shotData.direction, 'Power:', power.toFixed(2));
+        console.log(`🏏 KEYBOARD HIT: ${shotData.name}, BatSpeed=${batSpeed.toFixed(1)}m/s, Timing=${timingMultiplier.toFixed(2)}x`);
     }
 
     /**
      * Get authentic cricket shot based on input direction
+     * Uses centralized shot definitions from GAME_CONFIG
      */
     getAuthenticShot(dir, speed) {
-        // Shots from batting.js mapped to input direction
-        const shots = {
-            // Off-side shots (positive x = right side)
-            'square-cut': { name: 'Square Cut', clockPosition: 3, direction: { x: 1.5, y: 0.3, z: 0.2 }, power: 0.85 },
-            'cover-drive': { name: 'Cover Drive', clockPosition: 1.5, direction: { x: 0.8, y: 0.5, z: 1.2 }, power: 0.9 },
-            'late-cut': { name: 'Late Cut', clockPosition: 4.5, direction: { x: 1.2, y: 0.2, z: -0.3 }, power: 0.6 },
+        // Use centralized shot config
+        const shots = GAME_CONFIG.shots;
 
-            // Straight shots
-            'straight-drive': { name: 'Straight Drive', clockPosition: 12, direction: { x: 0, y: 0.6, z: 1.5 }, power: 0.95 },
-            'forward-defensive': { name: 'Forward Defensive', clockPosition: 12, direction: { x: 0, y: 0.1, z: 0.2 }, power: 0.15 },
-
-            // Leg-side shots (negative x = left side)
-            'on-drive': { name: 'On Drive', clockPosition: 10.5, direction: { x: -0.5, y: 0.5, z: 1.2 }, power: 0.9 },
-            'pull-shot': { name: 'Pull Shot', clockPosition: 8.5, direction: { x: -1.5, y: 0.4, z: 0.3 }, power: 0.95 },
-            'flick': { name: 'Flick', clockPosition: 9, direction: { x: -1, y: 0.4, z: 0.8 }, power: 0.75 }
-        };
-
-        // Determine shot based on direction
+        // Determine shot based on direction and speed
         if (speed < 0.5) {
             return shots['forward-defensive'];
         }
@@ -604,9 +615,11 @@ class CricketARGame {
             // Get launch angle from shot type
             const launchAngle = shot.launchAngle || 22;
 
-            // Apply hit using exit velocity physics
-            // Parameters: direction, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier
-            this.physics.hit(hitDirection, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier);
+            // Get zone name for trajectory modification
+            const zoneName = collision.verticalZone || 'middle';
+
+            // Apply hit using exit velocity physics with zone-based trajectory
+            this.physics.hit(hitDirection, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier, zoneName);
 
             // Log shot name
             console.log(`🏏 Shot: ${shot.name} → direction (${hitDirection.x.toFixed(2)}, ${hitDirection.y.toFixed(2)}, ${hitDirection.z.toFixed(2)})`);
@@ -827,6 +840,7 @@ class CricketARGame {
 
     /**
      * Complete delivery and calculate score
+     * Uses centralized calculateRuns from config.js
      */
     completeDelivery(distance) {
         if (this.state === 'delivery_complete') return; // Prevent double scoring
@@ -834,27 +848,36 @@ class CricketARGame {
         this.state = 'delivery_complete';
         this.deliveryComplete = true;
 
-        // Calculate runs based on distance and bounce
+        // Calculate runs using centralized scoring from config.js
+        // This applies proper 4/6 rules:
+        // - FOUR = bounced before crossing boundary
+        // - SIX = clean over boundary without bouncing
         const hasBounced = this.physics.hasBounced;
-        const runs = this.batting.calculateRuns('Hit', distance, hasBounced);
+        const runs = calculateRuns(distance, hasBounced);
 
         // Update score
-        this.score += runs;
-        this.ballsFaced++;
-        this.ui.updateScore(this.score, this.ballsFaced);
+        this.totalRuns += runs;
+        this.ui.updateScore(this.totalRuns, this.totalBalls);
 
         // Update stadium scoreboard
-        this.renderer.stadiumEnvironment.updateScore(this.score, this.ballsFaced);
+        this.renderer.stadiumEnvironment.updateScore(this.totalRuns, this.totalBalls);
 
-        // Show result
+        // Show result with proper formatting
         let resultText = `${distance.toFixed(1)}m`;
-        if (runs === 4) resultText = `FOUR! ${resultText}`;
-        else if (runs === 6) resultText = `SIX! ${resultText}`;
-        else if (runs === 0) resultText = `Dot Ball (${resultText})`;
-        else resultText = `${runs} Runs (${resultText})`;
+        if (runs === 6) {
+            resultText = `🎉 SIX! ${resultText} (over the rope!)`;
+        } else if (runs === 4) {
+            resultText = `🏏 FOUR! ${resultText} (bounced to boundary)`;
+        } else if (runs === 0) {
+            resultText = `Dot Ball (${resultText})`;
+        } else {
+            resultText = `${runs} Run${runs > 1 ? 's' : ''} (${resultText})`;
+        }
 
         this.ui.showShotResult(resultText);
         this.ui.showLastShot('Hit', runs);
+
+        console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - ${resultText} | Bounced: ${hasBounced}`);
 
         // Reset for next ball after delay
         setTimeout(() => {
@@ -907,9 +930,10 @@ class CricketARGame {
             const prediction = this.physics.predictLandingZone();
             const shot = this.batting.calculateShot(this.physics.getBallPosition());
             shotName = shot.name;
-            // Use hasBounced from physics, or estimate based on distance for prediction
-            const hasBounced = this.physics.hasBounced || (prediction.distance > 60 && prediction.distance < 70); // Simple fallback
-            runs = this.batting.calculateRuns(shotName, prediction.distance, this.physics.hasBounced);
+
+            // Use centralized scoring with proper 4/6 rules
+            const hasBounced = this.physics.hasBounced;
+            runs = calculateRuns(prediction.distance, hasBounced, shotName);
         }
 
         // Update score
