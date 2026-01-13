@@ -681,10 +681,14 @@ class CricketARGame {
             this.lastFpsUpdate = currentTime;
         }
 
-        // Update physics
-        if (this.state === 'bowling' || this.state === 'batting') {
+        // Update physics (includes dismissed state for wicket animation)
+        if (this.state === 'bowling' || this.state === 'batting' || this.state === 'dismissed') {
             this.physics.update(deltaTime);
-            this.updateBallVisuals();
+
+            // Only update ball visuals when ball is in play
+            if (this.state !== 'dismissed') {
+                this.updateBallVisuals();
+            }
         }
 
         // === CHECK FOR WICKET COLLISION (BOWLED) ===
@@ -692,7 +696,7 @@ class CricketARGame {
             const wicketHit = this.physics.checkWicketCollision();
             if (wicketHit) {
                 this.handleDismissal(wicketHit);
-                return; // Stop processing
+                // Don't return - continue game loop for animation
             }
         }
 
@@ -850,12 +854,8 @@ class CricketARGame {
     checkDeliveryComplete() {
         const ballPos = this.physics.getBallPosition();
 
-        // Check for Bowled (hitting stumps)
-        // Stumps are at Z=10, X=0 (approx width 0.23m)
-        if (Math.abs(ballPos.z - 10) < 0.5 && Math.abs(ballPos.x) < 0.15 && ballPos.y < 0.8) {
-            this.endDelivery('bowled');
-            return;
-        }
+        // NOTE: Bowled detection is now handled by physics.checkWicketCollision()
+        // in the game loop, which triggers handleDismissal() for proper physics animation
 
         // Ball passed batsman without hit
         if (!this.hasHitThisDelivery && this.physics.hasBallPassedBatsman()) {
@@ -926,6 +926,7 @@ class CricketARGame {
         this.renderer.hideBall();
         this.renderer.clearTrail();
         this.renderer.resetCamera();
+        this.renderer.resetWicketVisuals(); // Sync wicket meshes to upright position
         this.ui.hideBallOverlay();
         this.ui.setBowlEnabled(true);
         this.batting.reset();

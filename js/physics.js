@@ -135,16 +135,22 @@ export class Physics {
 
     /**
      * Create wicket physics bodies (3 stumps + 2 bails)
+     * IMPORTANT: Must match 3x scaled visual wickets in renderer.js
      */
     createWicketPhysics() {
-        const stumpPositions = [-0.115, 0, 0.115]; // 23cm apart (wicket width)
+        // Match visual wicket scale (3x)
+        const scale = 3.0;
+        const stumpSpacing = 0.25 * scale; // 0.75 units apart
+        const stumpPositions = [-stumpSpacing, 0, stumpSpacing]; // 3 stumps
+        const stumpRadius = 0.12 * scale; // 0.36
+        const stumpHeight = 1.5 * scale;  // 4.5 units tall
 
         // Create 3 stumps
         stumpPositions.forEach((x, i) => {
-            const shape = new CANNON.Cylinder(0.02, 0.02, 0.71, 8); // 2cm radius, 71cm height
+            const shape = new CANNON.Cylinder(stumpRadius, stumpRadius, stumpHeight, 8);
             const body = new CANNON.Body({
-                mass: 0.15, // 150g per stump
-                position: new CANNON.Vec3(x, 0.355, 10), // At batting end (z=10)
+                mass: 6.0, // 6kg per stump (Standard heavy wood)
+                position: new CANNON.Vec3(x, stumpHeight / 2, 10), // At batting end (z=10)
                 shape: shape
             });
 
@@ -156,11 +162,13 @@ export class Physics {
         });
 
         // Create 2 bails (on top of stumps)
+        const bailRadius = 0.05 * scale; // 0.15
+        const bailLength = 0.3 * scale;  // 0.9
         for (let i = 0; i < 2; i++) {
-            const shape = new CANNON.Box(new CANNON.Vec3(0.055, 0.01, 0.01)); // 11cm long, thin
+            const shape = new CANNON.Box(new CANNON.Vec3(bailLength / 2, bailRadius, bailRadius));
             const body = new CANNON.Body({
-                mass: 0.005, // 5g per bail
-                position: new CANNON.Vec3((i - 0.5) * 0.115, 0.71, 10) // On top of stumps
+                mass: 1.0, // 1kg per bail (Medium-Heavy)
+                position: new CANNON.Vec3((i - 0.5) * stumpSpacing, stumpHeight + bailRadius * 2, 10)
             });
 
             // Start as KINEMATIC
@@ -170,7 +178,7 @@ export class Physics {
             this.bailBodies.push(body);
         }
 
-        console.log('🏏 Wicket physics created: 3 stumps + 2 bails');
+        console.log(`🏏 Wicket physics created: 3 stumps (spacing=${stumpSpacing}, height=${stumpHeight}) + 2 bails`);
     }
 
     /**
@@ -194,17 +202,37 @@ export class Physics {
         const ballPos = this.ballBody.position;
         const ballVel = this.ballBody.velocity;
 
-        // Check if ball is near wicket area
-        if (Math.abs(ballPos.z - 10) > 0.3) return null;
+        // Check if ball is near wicket area (wider check zone for scaled wickets)
+        if (Math.abs(ballPos.z - 10) > 1.5) return null;
+
+        // Debug: Log ball position near wickets
+        if (Math.abs(ballPos.z - 10) < 2) {
+            console.log(`🏏 Ball near wicket: pos=(${ballPos.x.toFixed(2)}, ${ballPos.y.toFixed(2)}, ${ballPos.z.toFixed(2)})`);
+        }
 
         // Check collision with each stump
+        const stumpRadius = 0.36; // Physical stump radius (3x scale)
+        const ballRadius = 0.35;  // Ball radius
+        const collisionDistance = stumpRadius + ballRadius + 0.3; // ~1.0 for easier collision
+
         for (let i = 0; i < this.stumpBodies.length; i++) {
             const stump = this.stumpBodies[i];
-            const distance = ballPos.distanceTo(stump.position);
 
-            // Ball hit stump (within collision radius)
-            if (distance < 0.1) {
+            // Check horizontal distance (X-axis) to stump center
+            const dx = Math.abs(ballPos.x - stump.position.x);
+
+            // Check if ball is at stump height (Y-axis: 0 to stumpHeight=4.5)
+            const stumpHeight = 4.5;
+            const withinHeight = ballPos.y >= 0 && ballPos.y <= stumpHeight;
+
+            // Check Z position (ball passing through stump line)
+            const dz = Math.abs(ballPos.z - 10);
+
+            // Collision check: ball within stump width and at correct height/depth
+            if (dx < collisionDistance && dz < 1.0 && withinHeight) {
                 console.log(`🔴 BOWLED! Ball hit stump ${i} at speed ${ballVel.length().toFixed(1)} m/s`);
+                console.log(`   Position: (${ballPos.x.toFixed(2)}, ${ballPos.y.toFixed(2)}, ${ballPos.z.toFixed(2)})`);
+                console.log(`   Stump pos: (${stump.position.x.toFixed(2)}, ${stump.position.y.toFixed(2)}, ${stump.position.z.toFixed(2)})`);
 
                 return {
                     type: 'bowled',
@@ -212,6 +240,39 @@ export class Physics {
                     impactPoint: ballPos.clone(),
                     impactVelocity: ballVel.clone(),
                     ballSpeed: ballVel.length()
+                };
+            }
+        }
+
+        // Check collision with bails (for top edge hits)
+        const bailHeight = 4.5 + 0.15; // Stump height + bail radius
+        const bailCollisionDistY = 0.5; // Vertical buffer
+        const bailLength = 0.9;
+
+        for (let i = 0; i < this.bailBodies.length; i++) {
+            const bail = this.bailBodies[i];
+            const ballPos = this.ballBody.position;
+
+            // Check Z depth
+            const dz = Math.abs(ballPos.z - 10);
+
+            // Check Height (Y) - must be near the top
+            const dy = Math.abs(ballPos.y - bailHeight);
+
+            // Check Horizontal (X) - detect overlap with bail length
+            const dx = Math.abs(ballPos.x - bail.position.x);
+            const hitWidth = (bailLength / 2) + 0.35; // Half length + ball radius
+
+            if (dz < 1.0 && dy < bailCollisionDistY && dx < hitWidth) {
+                console.log(`🔴 BOWLED! Ball hit BAIL ${i}`);
+                return {
+                    type: 'bowled',
+                    stumpIndex: 1, // Default to middle stump for physics impact
+                    isBailHit: true,
+                    targetBailIndex: i,
+                    impactPoint: ballPos.clone(),
+                    impactVelocity: this.ballBody.velocity.clone(),
+                    ballSpeed: this.ballBody.velocity.length()
                 };
             }
         }
@@ -235,31 +296,33 @@ export class Physics {
         });
 
         // Calculate force multiplier based on ball speed
+        // Realistic: fast ball at 40m/s should move stump ~3-5m
         const speed = dismissal.ballSpeed;
         let forceMult = 1.0;
 
         if (speed < 15) {
-            forceMult = 0.5; // Slow ball - gentle
+            forceMult = 0.3; // Slow ball - very gentle
         } else if (speed > 25) {
-            forceMult = 2.0; // Fast ball - explosive!
+            forceMult = 1.5; // Fast ball - stronger but not extreme
         }
 
         console.log(`Ball speed: ${speed.toFixed(1)} m/s, Force multiplier: ${forceMult}x`);
 
-        // Apply force to hit stump
+        // Apply realistic force to hit stump
+        // Real stumps weigh ~0.5kg, ball ~0.16kg at 40m/s = ~6.4 Ns impulse
         const hitStump = this.stumpBodies[dismissal.stumpIndex];
         const force = dismissal.impactVelocity.clone();
-        force.scale(forceMult * 50); // Amplify force
+        force.scale(forceMult * 5); // Realistic force (was 50, now 5)
 
         hitStump.applyImpulse(force, hitStump.position);
 
-        // Bails fly up
+        // Bails hop up gently
         this.bailBodies.forEach(bail => {
             bail.applyImpulse(
                 new CANNON.Vec3(
-                    (Math.random() - 0.5) * 2,
-                    5 * forceMult,
-                    (Math.random() - 0.5) * 2
+                    (Math.random() - 0.5) * 6.2, // Sideways scattering (+- 3.1)
+                    2 * forceMult,               // Gentle upward
+                    (Math.random() - 0.5) * 6.2  // Forward/back scattering (+- 3.1)
                 ),
                 bail.position
             );
@@ -271,15 +334,21 @@ export class Physics {
 
     /**
      * Reset wicket to original position
+     * Uses 3x scale to match visual wickets
      */
     resetWicket() {
         console.log('🔄 Resetting wicket');
 
-        const stumpPositions = [-0.115, 0, 0.115];
+        // Match visual wicket scale (3x)
+        const scale = 3.0;
+        const stumpSpacing = 0.25 * scale; // 0.75
+        const stumpHeight = 1.5 * scale;   // 4.5
+        const bailRadius = 0.05 * scale;   // 0.15
+        const stumpPositions = [-stumpSpacing, 0, stumpSpacing];
 
         // Reset stumps
         this.stumpBodies.forEach((body, i) => {
-            body.position.set(stumpPositions[i], 0.355, 10);
+            body.position.set(stumpPositions[i], stumpHeight / 2, 10);
             body.velocity.set(0, 0, 0);
             body.angularVelocity.set(0, 0, 0);
             body.quaternion.set(0, 0, 0, 1); // Reset rotation
@@ -288,7 +357,7 @@ export class Physics {
 
         // Reset bails
         this.bailBodies.forEach((body, i) => {
-            body.position.set((i - 0.5) * 0.115, 0.71, 10);
+            body.position.set((i - 0.5) * stumpSpacing, stumpHeight + bailRadius * 2, 10);
             body.velocity.set(0, 0, 0);
             body.angularVelocity.set(0, 0, 0);
             body.quaternion.set(0, 0, 0, 1);

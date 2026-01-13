@@ -407,17 +407,29 @@ export class Renderer {
 
     /**
      * Update wicket visual meshes from physics bodies
+     * NOTE: Visual meshes are children of wicketGroup at z=10
+     * Physics bodies use world coordinates, so we need to convert
      * @param {Array} stumpBodies - Physics bodies for stumps
      * @param {Array} bailBodies - Physics bodies for bails
      */
     updateWicketPhysics(stumpBodies, bailBodies) {
-        if (!this.battingStumpMeshes || !this.battingBailMeshes) return;
+        if (!this.battingStumpMeshes || !this.battingBailMeshes) {
+            console.log('⚠️ No wicket meshes stored');
+            return;
+        }
+
+        // The wicket group is at z=10, so we need to subtract that for local coords
+        const groupZ = 10;
 
         // Sync stump meshes to physics bodies
         stumpBodies.forEach((body, i) => {
             if (this.battingStumpMeshes[i]) {
-                // Copy position from physics body
-                this.battingStumpMeshes[i].position.copy(body.position);
+                // Convert world position to local position (subtract group offset)
+                this.battingStumpMeshes[i].position.set(
+                    body.position.x,
+                    body.position.y,
+                    body.position.z - groupZ  // Convert to local Z
+                );
                 // Copy rotation from physics body
                 this.battingStumpMeshes[i].quaternion.copy(body.quaternion);
             }
@@ -426,10 +438,53 @@ export class Renderer {
         // Sync bail meshes to physics bodies
         bailBodies.forEach((body, i) => {
             if (this.battingBailMeshes[i]) {
-                this.battingBailMeshes[i].position.copy(body.position);
+                this.battingBailMeshes[i].position.set(
+                    body.position.x,
+                    body.position.y,
+                    body.position.z - groupZ  // Convert to local Z
+                );
                 this.battingBailMeshes[i].quaternion.copy(body.quaternion);
             }
         });
+    }
+
+    /**
+     * Reset wicket visual meshes to original upright positions
+     * Called after physics reset to sync visuals with reset physics
+     * Stumps were created at positions: i*spacing where i = -1, 0, 1
+     */
+    resetWicketVisuals() {
+        if (!this.battingStumpMeshes || !this.battingBailMeshes) {
+            console.log('⚠️ Cannot reset wicket visuals - no meshes stored');
+            return;
+        }
+
+        // Match visual wicket scale (3x)
+        const scale = 3.0;
+        const stumpSpacing = 0.25 * scale; // 0.75
+        const stumpHeight = 1.5 * scale;   // 4.5
+        const bailRadius = 0.05 * scale;   // 0.15
+        const bailRotationZ = Math.PI / 2; // Bails are rotated on Z axis
+
+        // Reset stump meshes to upright position (local coordinates)
+        // Stumps created at i*spacing for i in [-1, 0, 1]
+        this.battingStumpMeshes.forEach((mesh, i) => {
+            // Original positions: -0.75, 0, 0.75 for i=0,1,2
+            const xPos = (i - 1) * stumpSpacing;
+            mesh.position.set(xPos, stumpHeight / 2, 0);
+            mesh.quaternion.set(0, 0, 0, 1); // Upright
+        });
+
+        // Reset bail meshes - they sit on top
+        this.battingBailMeshes.forEach((mesh, i) => {
+            // Original positions: (i - 0.5) * spacing for i=0,1
+            const xPos = (i - 0.5) * stumpSpacing;
+            mesh.position.set(xPos, stumpHeight + bailRadius * 2, 0);
+            // Bails have rotation z = PI/2 (horizontal)
+            mesh.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), bailRotationZ);
+        });
+
+        console.log('🔄 Wicket visuals reset to upright position');
     }
 
     /**
