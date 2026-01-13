@@ -96,6 +96,46 @@ export const GAME_CONFIG = {
                 worn: 0.5,     // 50% conventional, enables reverse
                 old: 0.2       // 20% conventional, strong reverse
             }
+        },
+
+        // === DISMISSALS (WICKETS & CATCHES) ===
+        dismissals: {
+            enabled: true,
+
+            // Wicket dimensions (meters)
+            wicket: {
+                width: 0.23,      // 23cm (9 inches)
+                height: 0.71,     // 71cm (28 inches)
+                position: { x: 0, y: 0.355, z: 10 }
+            },
+
+            // Fielder positions (11 fielders)
+            fielders: [
+                // Close fielders (catches off edges)
+                { name: 'Slip 1', x: -2, z: 12, catchRadius: 3 },
+                { name: 'Slip 2', x: -3, z: 12, catchRadius: 3 },
+                { name: 'Wicket Keeper', x: 0, z: 12, catchRadius: 2.5 },
+
+                // Inner circle (drives, pulls)
+                { name: 'Mid Off', x: -4, z: 5, catchRadius: 4 },
+                { name: 'Mid On', x: 4, z: 5, catchRadius: 4 },
+                { name: 'Cover', x: -6, z: 2, catchRadius: 4 },
+                { name: 'Square Leg', x: 6, z: 8, catchRadius: 4 },
+
+                // Boundary fielders (lofted shots)
+                { name: 'Long Off', x: -8, z: -5, catchRadius: 5 },
+                { name: 'Long On', x: 8, z: -5, catchRadius: 5 },
+                { name: 'Deep Mid Wicket', x: 10, z: 5, catchRadius: 5 },
+                { name: 'Third Man', x: -10, z: 15, catchRadius: 5 }
+            ],
+
+            // Catch probability based on distance from fielder
+            catchProbability: {
+                perfect: 0.95,      // Within 1m
+                good: 0.75,         // 1-2m
+                difficult: 0.45,    // 2-3m
+                spectacular: 0.15   // 3-4m
+            }
         }
     },
 

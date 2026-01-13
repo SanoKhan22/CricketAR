@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=102';
-import { HandTracking } from './handTracking.js?v=102';
-import { Renderer } from './renderer.js?v=102';
-import { Physics } from './physics.js?v=102';
-import { Bowling } from './bowling.js?v=102';
-import { Batting } from './batting.js?v=102';
-import { Bat } from './bat.js?v=102'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=102';
-import { ShotStateMachine } from './shotStateMachine.js?v=102';
-import { TimingSystem } from './timingSystem.js?v=102';
+import { Camera } from './camera.js?v=104';
+import { HandTracking } from './handTracking.js?v=104';
+import { Renderer } from './renderer.js?v=104';
+import { Physics } from './physics.js?v=104';
+import { Bowling } from './bowling.js?v=104';
+import { Batting } from './batting.js?v=104';
+import { Bat } from './bat.js?v=104'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=104';
+import { ShotStateMachine } from './shotStateMachine.js?v=104';
+import { TimingSystem } from './timingSystem.js?v=104';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -667,6 +667,25 @@ class CricketARGame {
             this.updateBallVisuals();
         }
 
+        // === CHECK FOR WICKET HIT (BOWLED) ===
+        if (this.state === 'batting') {
+            const wicketHit = this.physics.checkWicketCollision();
+            if (wicketHit) {
+                this.handleDismissal(wicketHit);
+                return; // Stop processing
+            }
+
+            // === CHECK FOR CATCH (CAUGHT OUT) ===
+            // Only check if ball was hit
+            if (this.hasHitThisDelivery) {
+                const catchChance = this.physics.checkCatchOpportunity();
+                if (catchChance) {
+                    this.handleDismissal(catchChance);
+                    return; // Stop processing
+                }
+            }
+        }
+
         // Check for delivery completion
         if (this.state === 'batting') {
             this.checkDeliveryComplete();
@@ -769,6 +788,35 @@ class CricketARGame {
         setTimeout(() => {
             this.resetForNextDelivery();
         }, 3000);
+    }
+
+    /**
+     * Handle player dismissal (Bowled or Caught)
+     */
+    handleDismissal(dismissal) {
+        console.log(`🔴 DISMISSAL: ${dismissal.type.toUpperCase()}!`, dismissal);
+
+        // Stop game
+        this.state = 'dismissed';
+        this.isRunning = false;
+
+        // TODO: Trigger animations
+        // if (dismissal.type === 'bowled') {
+        //     this.renderer.stadiumEnvironment.animateWicketDestruction(dismissal);
+        // } else if (dismissal.type === 'caught') {
+        //     this.renderer.stadiumEnvironment.showFielderCatch(dismissal);
+        // }
+
+        // TODO: Show dismissal popup
+        // this.ui.showDismissalPopup(dismissal);
+
+        // For now, just log and reset
+        alert(`${dismissal.type.toUpperCase()}! You're out!`);
+
+        setTimeout(() => {
+            this.resetForNextDelivery();
+            this.isRunning = true;
+        }, 2000);
     }
 
     /**

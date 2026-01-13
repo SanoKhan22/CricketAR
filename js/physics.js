@@ -28,6 +28,12 @@ export class Physics {
         this.swingEnabled = true;
         this.ballAge = 0;  // 0 = new, 1 = old
         this.bowlStartTime = 0;  // For flight progress tracking
+
+        // === DISMISSAL TRACKING ===
+        this.wicketPosition = { x: 0, y: 0.355, z: 10 }; // Batsman end
+        this.wicketWidth = 0.23;   // 23cm (9 inches)
+        this.wicketHeight = 0.71;  // 71cm (28 inches)
+        this.dismissalCallback = null; // Callback when player is out
     }
 
     /**
@@ -369,6 +375,124 @@ export class Physics {
         const currentZ = this.ballBody.position.z;
 
         return Math.max(0, Math.min(1, (currentZ - startZ) / (endZ - startZ)));
+    }
+
+    /**
+     * Check if ball hit the wicket (BOWLED)
+     * @returns {Object|null} - Dismissal data or null
+     */
+    checkWicketCollision() {
+        if (!this.ballBody) return null;
+
+        const ballPos = this.ballBody.position;
+        const wicket = this.wicketPosition;
+
+        // Check if ball is near wicket (Z-axis)
+        const zDistance = Math.abs(ballPos.z - wicket.z);
+        if (zDistance > 0.2) return null; // Too far from wicket
+
+        // Check X bounds (wicket width)
+        const xDistance = Math.abs(ballPos.x - wicket.x);
+        if (xDistance > this.wicketWidth / 2) return null;
+
+        // Check Y bounds (wicket height)
+        // Ball radius is ~0.035m, so check from ground to top of stumps
+        if (ballPos.y < 0 || ballPos.y > this.wicketHeight) return null;
+
+        // BOWLED! Ball hit the wicket
+        console.log(`🔴 BOWLED! Ball hit wicket at (${ballPos.x.toFixed(2)}, ${ballPos.y.toFixed(2)}, ${ballPos.z.toFixed(2)})`);
+
+        return {
+            type: 'bowled',
+            impactPoint: {
+                x: ballPos.x,
+                y: ballPos.y,
+                z: ballPos.z
+            },
+            impactVelocity: {
+                x: this.ballBody.velocity.x,
+                y: this.ballBody.velocity.y,
+                z: this.ballBody.velocity.z
+            },
+            speed: this.ballBody.velocity.length()
+        };
+    }
+
+    /**
+     * Check if fielder can catch the ball (CAUGHT)
+     * @returns {Object|null} - Catch data or null
+     */
+    checkCatchOpportunity() {
+        if (!this.ballBody || !this.config.physics.dismissals.enabled) return null;
+
+        const ballPos = this.ballBody.position;
+        const ballVel = this.ballBody.velocity;
+
+        // Only check if ball is in air and moving away from batsman
+        if (ballPos.y < 0.5 || ballPos.z < 10) return null;
+
+        // Check each fielder
+        const fielders = this.config.physics.dismissals.fielders;
+        for (const fielder of fielders) {
+            const distance = Math.sqrt(
+                (ballPos.x - fielder.x) ** 2 +
+                (ballPos.z - fielder.z) ** 2
+            );
+
+            // Ball within fielder's catch radius
+            if (distance < fielder.catchRadius) {
+                // Ball must be at catchable height (0.5m to 2.5m)
+                if (ballPos.y > 0.5 && ballPos.y < 2.5) {
+                    // Calculate catch probability
+                    const prob = this.calculateCatchProbability(distance, ballPos.y, ballVel.length());
+
+                    // Random chance
+                    if (Math.random() < prob) {
+                        console.log(`🧤 CAUGHT by ${fielder.name}! Distance: ${distance.toFixed(1)}m, Prob: ${(prob * 100).toFixed(0)}%`);
+
+                        return {
+                            type: 'caught',
+                            fielder: fielder.name,
+                            distance: distance,
+                            probability: prob,
+                            catchPoint: {
+                                x: ballPos.x,
+                                y: ballPos.y,
+                                z: ballPos.z
+                            }
+                        };
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Calculate probability of fielder catching the ball
+     * @param {number} distance - Distance from fielder
+     * @param {number} height - Ball height
+     * @param {number} speed - Ball speed
+     * @returns {number} - Probability (0-1)
+     */
+    calculateCatchProbability(distance, height, speed) {
+        const probs = this.config.physics.dismissals.catchProbability;
+        let baseProb = 0;
+
+        // Distance factor
+        if (distance < 1) baseProb = probs.perfect;
+        else if (distance < 2) baseProb = probs.good;
+        else if (distance < 3) baseProb = probs.difficult;
+        else baseProb = probs.spectacular;
+
+        // Height penalty (harder to catch high balls)
+        if (height > 2.0) baseProb *= 0.7;
+
+        // Speed penalty (harder to catch fast balls)
+        if (speed > 30) baseProb *= 0.8;
+
+        return baseProb;
     }
 
     /**
