@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=90';
-import { HandTracking } from './handTracking.js?v=90';
-import { Renderer } from './renderer.js?v=90';
-import { Physics } from './physics.js?v=90';
-import { Bowling } from './bowling.js?v=90';
-import { Batting } from './batting.js?v=90';
-import { Bat } from './bat.js?v=90'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=90';
-import { ShotStateMachine } from './shotStateMachine.js?v=90';
-import { TimingSystem } from './timingSystem.js?v=90';
+import { Camera } from './camera.js?v=99';
+import { HandTracking } from './handTracking.js?v=99';
+import { Renderer } from './renderer.js?v=99';
+import { Physics } from './physics.js?v=99';
+import { Bowling } from './bowling.js?v=99';
+import { Batting } from './batting.js?v=99';
+import { Bat } from './bat.js?v=99'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=99';
+import { ShotStateMachine } from './shotStateMachine.js?v=99';
+import { TimingSystem } from './timingSystem.js?v=99';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -133,47 +133,11 @@ class CricketARGame {
     }
 
     /**
-     * Setup keyboard/click controls for hitting - works in both modes
+     * Setup click controls for hitting (hand tracking handles the rest)
      */
     setupHitControls() {
-        // Track key states for directional shots
+        // Shot direction for manual testing only
         this.shotDirection = { x: 0, y: 0.5, z: 1 };
-
-        document.addEventListener('keydown', (e) => {
-            // Arrow keys set shot direction
-            if (e.code === 'ArrowLeft') {
-                this.shotDirection.x = 1.5; // Offside
-                e.preventDefault();
-            }
-            if (e.code === 'ArrowRight') {
-                this.shotDirection.x = -1.5; // Onside  
-                e.preventDefault();
-            }
-            if (e.code === 'ArrowUp') {
-                this.shotDirection.y = 1; // Lofted
-                e.preventDefault();
-            }
-            if (e.code === 'ArrowDown') {
-                this.shotDirection.y = 0.2; // Grounded
-                e.preventDefault();
-            }
-
-            // Space to hit
-            if (e.code === 'Space' && this.state === 'batting' && !this.hasHitThisDelivery) {
-                e.preventDefault();
-                this.executeHit();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            // Reset direction on key release
-            if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
-                this.shotDirection.x = 0;
-            }
-            if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
-                this.shotDirection.y = 0.5;
-            }
-        });
 
         // Click/touch to hit
         document.getElementById('camera-panel').addEventListener('click', (e) => {
@@ -214,111 +178,8 @@ class CricketARGame {
             btn.textContent = isNight ? '🌙 Lights: ON' : '💡 Lights: OFF';
         });
 
-        console.log('Hit controls initialized: SPACE to hit, Arrow keys for direction');
+        console.log('Hit controls initialized: Hand tracking enabled');
     }
-
-    /**
-     * Execute a hit with current direction - uses authentic cricket shots
-     * For keyboard/click hits (simulated bat swing)
-     */
-    executeHit() {
-        if (!this.physics.isInHittingZone()) {
-            console.log('Ball not in hitting zone yet... (wait for it!)');
-            this.ui.showShotResult('Too early!');
-            return;
-        }
-
-        this.hasHitThisDelivery = true;
-
-        // Get shot based on direction using cricket shot system
-        const dir = this.shotDirection;
-        const speed = Math.sqrt(dir.x ** 2 + dir.y ** 2);
-
-        // Map direction to authentic cricket shot
-        let shotData = this.getAuthenticShot(dir, speed);
-
-        // Calculate bat speed for keyboard hits (8-18 m/s based on shot power)
-        // Power shots get higher bat speed
-        const baseBatSpeed = 8; // Minimum bat speed
-        const maxBatSpeed = 18; // Maximum bat speed
-        const batSpeed = baseBatSpeed + (maxBatSpeed - baseBatSpeed) * shotData.power;
-
-        // Zone multiplier (1.0 for keyboard hits - assume sweet spot)
-        const zoneMultiplier = 1.0;
-
-        // Timing (slight random variation for keyboard hits: 0.8 - 1.1)
-        const timingMultiplier = 0.8 + Math.random() * 0.3;
-
-        // Get bowl speed for momentum calculation
-        const bowlSpeed = this.currentBowlSpeed || 30;
-
-        // Apply hit with full physics parameters
-        this.physics.hit(
-            shotData.direction,
-            batSpeed,
-            zoneMultiplier,
-            0,  // deflection
-            bowlSpeed,
-            shotData.launchAngle || 22,
-            timingMultiplier
-        );
-
-        // Display shot name
-        this.ui.showShotResult(shotData.name);
-        this.ui.updateSwingSpeed(batSpeed);
-
-        // Show impact effect
-        const camPanel = document.getElementById('camera-panel');
-        this.ui.showImpactEffect(camPanel.clientWidth / 2, camPanel.clientHeight / 2);
-
-        console.log(`🏏 KEYBOARD HIT: ${shotData.name}, BatSpeed=${batSpeed.toFixed(1)}m/s, Timing=${timingMultiplier.toFixed(2)}x`);
-    }
-
-    /**
-     * Get authentic cricket shot based on input direction
-     * Uses centralized shot definitions from GAME_CONFIG
-     */
-    getAuthenticShot(dir, speed) {
-        // Use centralized shot config
-        const shots = GAME_CONFIG.shots;
-
-        // Determine shot based on direction and speed
-        if (speed < 0.5) {
-            return shots['forward-defensive'];
-        }
-
-        if (dir.x > 0.8) {
-            // Strong off-side
-            return dir.y > 0.5 ? shots['cover-drive'] : shots['square-cut'];
-        } else if (dir.x > 0.3) {
-            // Moderate off-side
-            return dir.y < 0.3 ? shots['late-cut'] : shots['cover-drive'];
-        } else if (dir.x < -0.8) {
-            // Strong leg-side
-            return dir.y > 0.5 ? shots['on-drive'] : shots['pull-shot'];
-        } else if (dir.x < -0.3) {
-            // Moderate leg-side
-            return shots['flick'];
-        } else {
-            // Straight
-            return dir.y > 0.6 ? shots['straight-drive'] : shots['forward-defensive'];
-        }
-    }
-
-    /**
-     * Simulate a hit (legacy - now calls executeHit)
-     */
-    simulateHit() {
-        // Set random direction and hit
-        this.shotDirection = {
-            x: (Math.random() - 0.5) * 3,
-            y: 0.3 + Math.random() * 0.7,
-            z: 1
-        };
-        this.executeHit();
-    }
-
-
 
     /**
      * Set up overlay canvas dimensions
@@ -612,8 +473,8 @@ class CricketARGame {
             // Get current bowl speed for momentum calculation
             const bowlSpeed = this.currentBowlSpeed || 30;
 
-            // Get launch angle from shot type
-            const launchAngle = shot.launchAngle || 22;
+            // Get launch angle from shot type (use ?? not || to allow 0°)
+            const launchAngle = shot.launchAngle ?? 12;
 
             // Get zone name for trajectory modification
             const zoneName = collision.verticalZone || 'middle';

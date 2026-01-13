@@ -28,27 +28,41 @@ export const GAME_CONFIG = {
         ballMass: 0.163,        // Cricket ball weight in kg
         ballRadius: 0.035,      // 35mm radius (visual: usually larger for visibility)
 
-        // Bounce behavior - realistic cricket ball physics
-        // Lower restitution = less vertical bounce, but horizontal momentum preserved
+        // Bounce behavior - realistic cricket
+        // Lower restitution = ball loses more energy on bounce
         restitution: {
-            pitch: 0.30,        // Cricket pitch: moderate bounce
-            outfield: 0.25,     // Grass: slightly lower bounce
-            boundary: 0.15      // Cushion: minimal bounce
+            pitch: 0.20,        // REDUCED: Lower bounce
+            outfield: 0.15,     // REDUCED: Grass absorbs energy
+            boundary: 0.10      // Minimal bounce at cushion
         },
         friction: {
-            pitch: 0.35,        // Pitch has moderate grip
-            outfield: 0.30,     // Grass has less friction
-            rolling: 8.0        // Ball slows gradually when rolling
+            pitch: 0.45,        // INCREASED: More grip stops ball faster
+            outfield: 0.40,     // INCREASED: Grass friction
+            rolling: 12.0       // INCREASED: Ball stops faster
         },
 
         // Air resistance
-        airDrag: 0.015,         // Slight air resistance for realism
+        airDrag: 0.02,          // Moderate air resistance
 
-        // Exit velocity calculation
+        // === EXIT VELOCITY FORMULA ===
         // ExitVelocity = sqrt((BatSpeed² × batEnergy) + (BowlSpeed × reboundEnergy)) × zone × timing × powerBoost
-        batEnergyCoefficient: 0.28,     // Controls how bat speed affects power
-        reboundEnergyCoefficient: 0.06, // Ball momentum contribution
-        powerBoost: 1.85                // Overall multiplier to reach realistic distances
+        //
+        // NOW THAT IMPULSE BUG IS FIXED, recalibrate for proper distances:
+        // Hand tracking bat speed: typically 0.5-3.0 m/s
+        // Need to amplify to get full range of shots
+        //
+        batEnergyCoefficient: 0.45,     // INCREASED: Now fixed, need more power
+        reboundEnergyCoefficient: 0.10, // INCREASED: Bowl speed matters more
+        powerBoost: 4,                // INCREASED: Amplify for proper distances
+
+        // Bowl speed affects control (faster = harder to time/control)
+        // Fast bowl: less control, but more rebound energy if timed right
+        bowlSpeedPenalty: {
+            slow: 1.0,      // Full control
+            medium: 0.92,   // Slight penalty
+            fast: 0.82,     // Harder to control
+            express: 0.70   // Very hard to time
+        }
     },
 
     // ===========================================
@@ -110,7 +124,7 @@ export const GAME_CONFIG = {
 
         // Timing multipliers
         timingMultipliers: {
-            perfect: 1.30,      // Bonus for perfect timing
+            perfect: 1.10,      // Bonus for perfect timing
             good: 1.0,          // Standard
             okay: 0.65,         // Penalized
             poor: 0.35          // Badly mistimed
@@ -149,7 +163,7 @@ export const GAME_CONFIG = {
         },
 
         // Minimum distance for boundary decisions
-        nearBoundary: 55            // Near enough that bounce matters
+        nearBoundary: 61            // Near enough that bounce matters
     },
 
     // ===========================================
@@ -167,14 +181,14 @@ export const GAME_CONFIG = {
             description: 'Dead bat - kills the ball'
         },
 
-        // Straight shots
+        // Straight shots (mostly along ground)
         'straight-drive': {
             name: 'Straight Drive',
             clockPosition: 12,
-            direction: { x: 0, y: 0.55, z: 1.5 },
-            power: 0.95,
-            launchAngle: 24,
-            description: 'Classic drive past the bowler'
+            direction: { x: 0, y: 0.25, z: 1.5 },
+            power: 0.85,
+            launchAngle: 10,  // REDUCED: Ground shot
+            description: 'Classic drive along the ground'
         },
         'lofted-straight': {
             name: 'Lofted Straight',
@@ -189,18 +203,18 @@ export const GAME_CONFIG = {
         'cover-drive': {
             name: 'Cover Drive',
             clockPosition: 1.5,
-            direction: { x: 0.9, y: 0.45, z: 1.2 },
-            power: 0.90,
-            launchAngle: 20,
-            description: 'Elegant through covers'
+            direction: { x: 0.9, y: 0.20, z: 1.2 },
+            power: 0.80,
+            launchAngle: 8,   // REDUCED: Ground shot
+            description: 'Elegant along ground through covers'
         },
         'square-cut': {
             name: 'Square Cut',
             clockPosition: 3,
-            direction: { x: 1.6, y: 0.30, z: 0.25 },
-            power: 0.85,
-            launchAngle: 26,
-            description: 'Horizontal slash to point'
+            direction: { x: 1.6, y: 0.15, z: 0.25 },
+            power: 0.75,
+            launchAngle: 12,  // REDUCED: Ground shot
+            description: 'Horizontal slash along ground'
         },
         'late-cut': {
             name: 'Late Cut',
@@ -215,18 +229,18 @@ export const GAME_CONFIG = {
         'on-drive': {
             name: 'On Drive',
             clockPosition: 10.5,
-            direction: { x: -0.6, y: 0.50, z: 1.3 },
-            power: 0.90,
-            launchAngle: 22,
-            description: 'Through mid-on'
+            direction: { x: -0.6, y: 0.20, z: 1.3 },
+            power: 0.80,
+            launchAngle: 10,  // REDUCED: Ground shot
+            description: 'Along ground through mid-on'
         },
         'flick': {
             name: 'Flick',
             clockPosition: 9,
-            direction: { x: -1.1, y: 0.38, z: 0.85 },
-            power: 0.75,
-            launchAngle: 25,
-            description: 'Wristy through midwicket'
+            direction: { x: -1.1, y: 0.25, z: 0.85 },
+            power: 0.70,
+            launchAngle: 15,  // REDUCED: Low trajectory
+            description: 'Wristy flick along ground'
         },
         'pull-shot': {
             name: 'Pull Shot',
@@ -332,10 +346,10 @@ export function getShot(name) {
 /**
  * Calculate runs from distance and bounce status
  * 
- * RULES:
- * - FOUR: Ball bounces, then crosses/touches boundary
- * - SIX: Ball crosses boundary without bouncing (clean hit over rope)
- * - Otherwise: Distance-based running
+ * CORRECT RULES:
+ * - FOUR: Ball bounces at least once AND crosses 65m boundary
+ * - SIX: Ball crosses 65m boundary WITHOUT bouncing
+ * - Otherwise: Distance-based running (0, 1, 2, 3 runs)
  */
 export function calculateRuns(distance, hasBounced, shotName = '') {
     const { scoring } = GAME_CONFIG;
@@ -345,34 +359,27 @@ export function calculateRuns(distance, hasBounced, shotName = '') {
         return 0;
     }
 
-    // BOUNDARY DECISIONS
+    // === BOUNDARY (65m+) ===
+    // FOUR: bounced first, then crossed 65m
+    // SIX: clean over 65m without bounce
     if (distance >= scoring.boundaryRope) {
-        // Ball crossed the rope
         if (hasBounced) {
-            return 4;  // FOUR - bounced before crossing
+            console.log(`📊 FOUR! ${distance.toFixed(1)}m (bounced to boundary)`);
+            return 4;
         } else {
-            return 6;  // SIX - clean over the rope
+            console.log(`📊 SIX! ${distance.toFixed(1)}m (over the rope)`);
+            return 6;
         }
     }
 
-    // Near boundary (55-65m) - also check bounce
-    if (distance >= scoring.nearBoundary) {
-        // Close to boundary
-        if (hasBounced) {
-            return 4;  // Rolling/bouncing to boundary = 4
-        } else {
-            return 6;  // Clean carry = 6 (it's going over)
-        }
-    }
-
-    // RUNNING SCORES (ball didn't reach boundary)
+    // === RUNNING SCORES (under 65m) ===
     const { runThresholds } = scoring;
-    if (distance < runThresholds.dot) return 0;
-    if (distance < runThresholds.single) return 1;
-    if (distance < runThresholds.two) return 2;
-    if (distance < runThresholds.three) return 3;
+    if (distance < runThresholds.dot) return 0;      // 0-8m
+    if (distance < runThresholds.single) return 1;   // 8-22m
+    if (distance < runThresholds.two) return 2;      // 22-40m
+    if (distance < runThresholds.three) return 3;    // 40-55m
 
-    // 40-55m = possible 3-4, depends on placement
+    // 55-64m = 3 runs (close but didn't reach 65m)
     return 3;
 }
 

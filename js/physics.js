@@ -71,11 +71,11 @@ export class Physics {
         const ballMaterial = new CANNON.Material('ball');
 
         this.ballBody = new CANNON.Body({
-            mass: 0.163, // Cricket ball ~163g
+            mass: this.config.physics.ballMass,  // Fixed: was 'physics.ballMass'
             shape: ballShape,
             material: ballMaterial,
-            linearDamping: 0.05,    // Low: ball travels far through air
-            angularDamping: 0.1     // Moderate: spin reduces gradually
+            linearDamping: 0.05,        // Low: ball travels far through air
+            angularDamping: 0.1         // Moderate: spin reduces gradually
         });
 
         // Set initial position (bowling end)
@@ -279,18 +279,18 @@ export class Physics {
         // Ensure ball goes FORWARD (towards boundary)
         forwardVelocity = Math.max(3.0, forwardVelocity);
 
-        // === APPLY IMPULSE ===
+        // === SET VELOCITY DIRECTLY ===
+        // CRITICAL FIX: applyImpulse divides by mass, making ball go ~6x faster!
+        // We want the calculated velocity to BE the actual ball velocity
         // Coordinate system:
         // X = sideways (positive = off-side/right, negative = leg-side/left)
         // Y = upward
         // Z = forward (NEGATIVE Z = towards boundary where bowler is at -Z)
-        const impulse = new CANNON.Vec3(
+        this.ballBody.velocity.set(
             sidewaysVelocity,      // Sideways direction
             upwardVelocity,        // Upward trajectory
             -forwardVelocity       // NEGATIVE = forward to boundary
         );
-
-        this.ballBody.applyImpulse(impulse, this.ballBody.position);
 
         // Add realistic spin (affects trajectory after bounce)
         const spinX = (Math.random() - 0.5) * 5;  // Side spin
@@ -316,9 +316,9 @@ export class Physics {
             const vel = this.ballBody.velocity;
             const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 
-            // Strong friction (15 m/s² deceleration)
+            // Use friction from config
             if (speed > 0.1) {
-                const friction = 15.0 * deltaTime;
+                const friction = this.config.physics.friction.rolling * deltaTime;
                 const factor = Math.max(0, 1 - friction / speed);
                 vel.x *= factor;
                 vel.z *= factor;

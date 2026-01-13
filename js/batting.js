@@ -237,35 +237,37 @@ export class Batting {
         const speed = this.swingSpeed;
 
         // Determine shot based on hand movement direction and speed
+        // THRESHOLDS LOWERED for easier shot variety with hand tracking
         let shotKey = 'forward-defensive';
 
-        if (speed > 2.5) {
-            // Fast swing - aggressive shot
-            if (vx > 1) {
-                // Moving right = Off-side
-                shotKey = vy < -0.5 ? 'cover-drive' : 'square-cut';
-            } else if (vx < -1) {
-                // Moving left = Leg-side
-                shotKey = vy < -0.5 ? 'on-drive' : 'pull-shot';
-            } else if (vy < -1) {
+        if (speed > 1.0) {
+            // Fast swing - aggressive shot (was > 2.5)
+            if (vx > 0.4) {
+                // Moving right = Off-side (was > 1)
+                shotKey = vy < -0.3 ? 'cover-drive' : 'square-cut';
+            } else if (vx < -0.4) {
+                // Moving left = Leg-side (was < -1)
+                shotKey = vy < -0.3 ? 'on-drive' : 'pull-shot';
+            } else if (vy < -0.5) {
                 // Moving up = Lofted straight
-                shotKey = 'straight-drive';
-            } else if (vy > 0.5) {
+                shotKey = 'lofted-straight';
+            } else if (vy > 0.3) {
                 // Moving down = Late timing
-                shotKey = vx > 0.3 ? 'late-cut' : 'flick';
-            } else {
-                shotKey = 'straight-drive';
-            }
-        } else if (speed > 1.5) {
-            // Medium swing
-            if (vx > 0.5) {
-                shotKey = 'cover-drive';
-            } else if (vx < -0.5) {
-                shotKey = 'flick';
+                shotKey = vx > 0.2 ? 'late-cut' : 'flick';
             } else {
                 shotKey = 'straight-drive';
             }
         } else if (speed > 0.5) {
+            // Medium swing (was > 1.5)
+            if (vx > 0.3) {
+                shotKey = 'cover-drive';
+            } else if (vx < -0.3) {
+                shotKey = 'flick';
+            } else {
+                shotKey = 'straight-drive';
+            }
+        } else if (speed > 0.2) {
+            // Slow = Defensive (was > 0.5)
             shotKey = 'forward-defensive';
         }
 
@@ -321,47 +323,6 @@ export class Batting {
         return positions[clockPos] || `${clockPos} o'clock`;
     }
 
-    /**
-     * Calculate runs based on distance and bounce
-     * 
-     * BOUNDARY LINE: 65m
-     * 
-     * Distance-Based Scoring:
-     * - 0-10m = 0 runs (Dot ball - fielder stops it)
-     * - 10-25m = 1 run (Quick single)
-     * - 25-45m = 2 runs (Good placement)
-     * - 45-60m = 3 runs (Running hard)
-     * - 60-65m = 4 runs (Boundary after bounce)
-     * - 65m+ = 6 runs (Over the rope - SIX!)
-     */
-    calculateRuns(shotName, distance, hasBounced) {
-        // Miss always 0
-        if (shotName === 'Miss!') return 0;
-
-        // Forward Defensive never scores
-        if (shotName === 'Forward Defensive') return 0;
-
-        // === BOUNDARY CHECK (65m line) ===
-        const boundaryLine = 65;
-
-        if (distance >= boundaryLine) {
-            // Crossed boundary - SIX (doesn't matter if bounced)
-            return 6;
-        }
-
-        if (distance >= 60 && distance < boundaryLine) {
-            // Reached boundary after traveling - 4 if bounced, 6 if clean
-            return hasBounced ? 4 : 6;
-        }
-
-        // === RUNNING SCORES ===
-        if (distance < 10) return 0;  // Dot ball - fielder pounces
-        if (distance < 25) return 1;  // Quick single
-        if (distance < 45) return 2;  // Good placement - two runs
-        if (distance < 60) return 3;  // Near boundary - three runs
-
-        return 0; // Fallback
-    }
 
     getSwingData() {
         return {
