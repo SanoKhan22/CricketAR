@@ -67,7 +67,7 @@ export class Bat {
         this.previousTime = Date.now();
         this.swingVelocity = { x: 0, y: 0, z: 0 };
         this.isSwinging = false;
-        this.swingThreshold = 2.0; // Lower threshold for easier hit detection
+        this.swingThreshold = 0.5; // Lower threshold (was 2.0) for easier detection
         this.currentHandAngle = 0;
 
         // Visual guides (Phase 2)
@@ -454,12 +454,12 @@ export class Bat {
             const timingMultiplier = timing.multiplier;
 
             // Calculate bat speed in m/s
-            // swingVelocity is per-frame, multiply by ~25 and CAP at 20 m/s max
+            // swingVelocity is per-frame, multiply by ~40 (was 25) for more responsiveness
             const rawSpeed = this.swingVelocity ? Math.sqrt(
                 this.swingVelocity.x ** 2 +
                 this.swingVelocity.y ** 2 +
                 this.swingVelocity.z ** 2
-            ) * 25 : 0;
+            ) * 40 : 0;
 
             // Cap at realistic human maximum (20 m/s = 72 km/h)
             const batSpeed = Math.min(rawSpeed, 20);

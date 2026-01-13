@@ -16,7 +16,7 @@ export class HandTracking {
 
         // Performance optimization
         this.lastUpdateTime = 0;
-        this.frameSkip = 2; // Process every Nth frame
+        this.frameSkip = 1; // OPTIMIZED: Process every 3rd frame (was 2)
         this.frameCount = 0;
     }
 
@@ -34,10 +34,10 @@ export class HandTracking {
                 });
 
                 this.hands.setOptions({
-                    maxNumHands: 2,
-                    modelComplexity: 0, // 0 = Lite (fastest), 1 = Full
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
+                    maxNumHands: 1,  // OPTIMIZED: Only track 1 hand (was 2)
+                    modelComplexity: 0, // 0 = Lite (fastest)
+                    minDetectionConfidence: 0.4, // OPTIMIZED: Lower threshold (was 0.5)
+                    minTrackingConfidence: 0.4   // OPTIMIZED: Lower threshold (was 0.5)
                 });
 
                 this.hands.onResults((results) => this.processResults(results));
@@ -70,8 +70,9 @@ export class HandTracking {
                     await this.hands.send({ image: videoElement });
                 }
             },
-            width: videoElement.videoWidth || 1280,
-            height: videoElement.videoHeight || 720
+            // OPTIMIZED: Lower resolution for faster processing
+            width: 640,   // Was 1280
+            height: 480   // Was 720
         });
 
         await this.camera.start();
@@ -229,36 +230,38 @@ export class HandTracking {
     }
 
     /**
-     * Draw hand landmark points
+     * Draw hand landmark points - OPTIMIZED: Fewer points, smaller size
      */
     drawLandmarks(ctx, landmarks, width, height) {
-        for (let i = 0; i < landmarks.length; i++) {
+        // OPTIMIZED: Only draw key landmarks (palm and fingertips)
+        const keyLandmarks = [0, 4, 8, 9, 12, 16, 20]; // Wrist, thumb tip, index tip, palm, middle tip, ring tip, pinky tip
+
+        for (const i of keyLandmarks) {
             const landmark = landmarks[i];
             const x = landmark.x * width;
             const y = landmark.y * height;
 
             ctx.beginPath();
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            ctx.fillStyle = i === 9 ? '#00d4aa' : '#7c3aed'; // Highlight palm center
+            ctx.arc(x, y, 4, 0, 2 * Math.PI); // Smaller circles (was 5)
+            ctx.fillStyle = i === 9 ? '#00d4aa' : '#7c3aed';
             ctx.fill();
         }
     }
 
     /**
-     * Draw connections between landmarks
+     * Draw connections between landmarks - OPTIMIZED: Fewer connections
      */
     drawConnections(ctx, landmarks, width, height) {
+        // OPTIMIZED: Only draw palm outline (reduced from 23 to 8 connections)
         const connections = [
-            [0, 1], [1, 2], [2, 3], [3, 4], // Thumb
-            [0, 5], [5, 6], [6, 7], [7, 8], // Index
-            [0, 9], [9, 10], [10, 11], [11, 12], // Middle
-            [0, 13], [13, 14], [14, 15], [15, 16], // Ring
-            [0, 17], [17, 18], [18, 19], [19, 20], // Pinky
-            [5, 9], [9, 13], [13, 17] // Palm
+            [0, 9],   // Wrist to palm
+            [5, 9], [9, 13], [13, 17], // Palm base
+            [0, 5], [0, 17], // Wrist edges
+            [4, 8], [8, 12] // Fingertip line
         ];
 
-        ctx.strokeStyle = 'rgba(124, 58, 237, 0.5)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(124, 58, 237, 0.4)';
+        ctx.lineWidth = 1; // Thinner lines (was 2)
 
         for (const [start, end] of connections) {
             const startPoint = landmarks[start];
