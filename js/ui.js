@@ -48,13 +48,6 @@ export class UI {
             // Shot result
             shotResult: document.getElementById('shot-result'),
 
-            // Dismissal popup
-            dismissalPopup: document.getElementById('dismissal-popup'),
-            dismissalTypeText: document.getElementById('dismissal-type-text'),
-            dismissalMessage: document.getElementById('dismissal-message'),
-            dismissalStats: document.getElementById('dismissal-stats'),
-            dismissalContinueBtn: document.getElementById('dismissal-continue-btn'),
-
             // Overlays
             cameraOverlay: document.getElementById('camera-overlay'),
             ballTrajectoryOverlay: document.getElementById('ball-trajectory-overlay')
@@ -208,42 +201,7 @@ export class UI {
 
         setTimeout(() => {
             this.elements.shotResult.classList.remove('visible');
-        }, 3000);
-    }
-
-    /**
-     * Show dismissal popup
-     * @param {Object} dismissal - Dismissal data {type, fielder, impactPoint, etc}
-     * @param {Function} onContinue - Callback when continue button is clicked
-     */
-    showDismissalPopup(dismissal, onContinue) {
-        // Set dismissal type
-        const typeText = dismissal.type.toUpperCase() + '!';
-        this.elements.dismissalTypeText.textContent = typeText;
-
-        // Set message based on type
-        let message = '';
-        if (dismissal.type === 'bowled') {
-            message = 'Stumps demolished!';
-        } else if (dismissal.type === 'caught') {
-            message = `Caught by ${dismissal.fielder}!`;
-        }
-        this.elements.dismissalMessage.textContent = message;
-
-        // Set stats (can be expanded later)
-        this.elements.dismissalStats.textContent = '';
-
-        // Show popup
-        this.elements.dismissalPopup.classList.remove('hidden');
-
-        // Set up continue button
-        const continueHandler = () => {
-            this.elements.dismissalPopup.classList.add('hidden');
-            this.elements.dismissalContinueBtn.removeEventListener('click', continueHandler);
-            if (onContinue) onContinue();
-        };
-
-        this.elements.dismissalContinueBtn.addEventListener('click', continueHandler);
+        }, 1500);
     }
 
     /**
