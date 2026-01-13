@@ -48,6 +48,8 @@ export class UI {
 
             // Shot result
             shotResult: document.getElementById('shot-result'),
+            // Next Ball Warning
+            nextBallWarning: document.getElementById('next-ball-warning'),
 
             // Overlays
             cameraOverlay: document.getElementById('camera-overlay'),
@@ -216,12 +218,28 @@ export class UI {
      * Show Get Ready warning
      */
     showGetReady() {
-        this.elements.shotResult.textContent = "⚠️ Next Ball ⚠️";
-        this.elements.shotResult.classList.add('visible');
+        if (!this.elements.nextBallWarning) return;
+
+        this.isGetReady = true; // Flag for canvas drawing
+        this.elements.nextBallWarning.textContent = "NEXT DELIVERY";
+        this.elements.nextBallWarning.classList.add('visible');
 
         setTimeout(() => {
-            this.elements.shotResult.classList.remove('visible');
+            this.elements.nextBallWarning.classList.remove('visible');
+            this.isGetReady = false;
         }, 1500);
+    }
+
+    /**
+     * Show Dismissal Effect (Red Glow)
+     */
+    showDismissalEffect() {
+        this.isDismissed = true;
+
+        // Reset after 3 seconds (matching physics reset)
+        setTimeout(() => {
+            this.isDismissed = false;
+        }, 3000);
     }
 
     /**

@@ -325,16 +325,62 @@ class CricketARGame {
         const zoneH = height * 0.55;  // Taller zone
 
         // Draw batting zone
-        ctx.strokeStyle = 'rgba(0, 200, 255, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 4]);
-        ctx.strokeRect(zoneX, zoneY, zoneW, zoneH);
+        if (this.ui.isDismissed) {
+            // DISMISSAL GLOW EFFECT (RED)
+            const alpha = 0.6 + Math.sin(Date.now() / 50) * 0.4; // Fast pulse
+            ctx.strokeStyle = `rgba(255, 0, 51, ${alpha + 0.2})`; // Neon Red
+            ctx.lineWidth = 5;
+            ctx.setLineDash([]);
+            ctx.strokeRect(zoneX, zoneY, zoneW, zoneH);
+
+            // Corner brackets (Red)
+            const len = 40;
+            ctx.lineWidth = 7;
+            ctx.strokeStyle = '#FF0033';
+
+            // Corners
+            ctx.beginPath(); ctx.moveTo(zoneX, zoneY + len); ctx.lineTo(zoneX, zoneY); ctx.lineTo(zoneX + len, zoneY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(zoneX + zoneW - len, zoneY); ctx.lineTo(zoneX + zoneW, zoneY); ctx.lineTo(zoneX + zoneW, zoneY + len); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(zoneX, zoneY + zoneH - len); ctx.lineTo(zoneX, zoneY + zoneH); ctx.lineTo(zoneX + len, zoneY + zoneH); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(zoneX + zoneW - len, zoneY + zoneH); ctx.lineTo(zoneX + zoneW, zoneY + zoneH); ctx.lineTo(zoneX + zoneW, zoneY + zoneH - len); ctx.stroke();
+
+        } else if (this.ui.isGetReady) {
+            // HUD LOCK-ON EFFECT
+            const alpha = 0.5 + Math.sin(Date.now() / 100) * 0.3; // Pulsing opacity
+            ctx.strokeStyle = `rgba(57, 255, 20, ${alpha + 0.2})`; // Neon Green
+            ctx.lineWidth = 4;
+            ctx.setLineDash([]); // Solid line for lock-on
+            ctx.strokeRect(zoneX, zoneY, zoneW, zoneH);
+
+            // Corner brackets effect
+            const len = 40;
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#39ff14';
+
+            // Top Left
+            ctx.beginPath(); ctx.moveTo(zoneX, zoneY + len); ctx.lineTo(zoneX, zoneY); ctx.lineTo(zoneX + len, zoneY); ctx.stroke();
+            // Top Right
+            ctx.beginPath(); ctx.moveTo(zoneX + zoneW - len, zoneY); ctx.lineTo(zoneX + zoneW, zoneY); ctx.lineTo(zoneX + zoneW, zoneY + len); ctx.stroke();
+            // Bottom Left
+            ctx.beginPath(); ctx.moveTo(zoneX, zoneY + zoneH - len); ctx.lineTo(zoneX, zoneY + zoneH); ctx.lineTo(zoneX + len, zoneY + zoneH); ctx.stroke();
+            // Bottom Right
+            ctx.beginPath(); ctx.moveTo(zoneX + zoneW - len, zoneY + zoneH); ctx.lineTo(zoneX + zoneW, zoneY + zoneH); ctx.lineTo(zoneX + zoneW, zoneY + zoneH - len); ctx.stroke();
+
+        } else {
+            // Standard dashed blue box
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.strokeRect(zoneX, zoneY, zoneW, zoneH);
+        }
         ctx.setLineDash([]);
 
         // Label
-        ctx.font = 'bold 12px Arial';
-        ctx.fillStyle = 'rgba(0, 200, 255, 0.7)';
-        ctx.fillText('BATTING AREA', zoneX + 5, zoneY - 5);
+        if (!this.ui.isGetReady && !this.ui.isDismissed) {
+            ctx.font = 'bold 12px Arial';
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.7)';
+            ctx.fillText('BATTING AREA', zoneX + 5, zoneY - 5);
+        }
 
         // === BALL POSITION INDICATOR ===
         // Ball starts at TOP (Z=0) and comes DOWN to batting area (Z=10)
@@ -829,6 +875,7 @@ class CricketARGame {
 
         // Show dismissal message
         this.ui.showShotResult(`BOWLED! You're OUT!`);
+        this.ui.showDismissalEffect();
 
         console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - Wickets: ${this.wickets}/10`);
 
