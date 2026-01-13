@@ -185,6 +185,118 @@ export class Physics {
     }
 
     /**
+     * Check if ball hit the wicket (collision with stump bodies)
+     * @returns {Object|null} - Dismissal data or null
+     */
+    checkWicketCollision() {
+        if (!this.ballBody) return null;
+
+        const ballPos = this.ballBody.position;
+        const ballVel = this.ballBody.velocity;
+
+        // Check if ball is near wicket area
+        if (Math.abs(ballPos.z - 10) > 0.3) return null;
+
+        // Check collision with each stump
+        for (let i = 0; i < this.stumpBodies.length; i++) {
+            const stump = this.stumpBodies[i];
+            const distance = ballPos.distanceTo(stump.position);
+
+            // Ball hit stump (within collision radius)
+            if (distance < 0.1) {
+                console.log(`🔴 BOWLED! Ball hit stump ${i} at speed ${ballVel.length().toFixed(1)} m/s`);
+
+                return {
+                    type: 'bowled',
+                    stumpIndex: i,
+                    impactPoint: ballPos.clone(),
+                    impactVelocity: ballVel.clone(),
+                    ballSpeed: ballVel.length()
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Destroy wicket - make stumps/bails dynamic and apply forces
+     * @param {Object} dismissal - Dismissal data from checkWicketCollision
+     */
+    destroyWicket(dismissal) {
+        console.log('💥 Destroying wicket!', dismissal);
+
+        // Make all stumps and bails DYNAMIC (can move)
+        this.stumpBodies.forEach(body => {
+            body.type = CANNON.Body.DYNAMIC;
+        });
+        this.bailBodies.forEach(body => {
+            body.type = CANNON.Body.DYNAMIC;
+        });
+
+        // Calculate force multiplier based on ball speed
+        const speed = dismissal.ballSpeed;
+        let forceMult = 1.0;
+
+        if (speed < 15) {
+            forceMult = 0.5; // Slow ball - gentle
+        } else if (speed > 25) {
+            forceMult = 2.0; // Fast ball - explosive!
+        }
+
+        console.log(`Ball speed: ${speed.toFixed(1)} m/s, Force multiplier: ${forceMult}x`);
+
+        // Apply force to hit stump
+        const hitStump = this.stumpBodies[dismissal.stumpIndex];
+        const force = dismissal.impactVelocity.clone();
+        force.scale(forceMult * 50); // Amplify force
+
+        hitStump.applyImpulse(force, hitStump.position);
+
+        // Bails fly up
+        this.bailBodies.forEach(bail => {
+            bail.applyImpulse(
+                new CANNON.Vec3(
+                    (Math.random() - 0.5) * 2,
+                    5 * forceMult,
+                    (Math.random() - 0.5) * 2
+                ),
+                bail.position
+            );
+        });
+
+        // Reset after 2 seconds
+        setTimeout(() => this.resetWicket(), 2000);
+    }
+
+    /**
+     * Reset wicket to original position
+     */
+    resetWicket() {
+        console.log('🔄 Resetting wicket');
+
+        const stumpPositions = [-0.115, 0, 0.115];
+
+        // Reset stumps
+        this.stumpBodies.forEach((body, i) => {
+            body.position.set(stumpPositions[i], 0.355, 10);
+            body.velocity.set(0, 0, 0);
+            body.angularVelocity.set(0, 0, 0);
+            body.quaternion.set(0, 0, 0, 1); // Reset rotation
+            body.type = CANNON.Body.KINEMATIC; // Back to static
+        });
+
+        // Reset bails
+        this.bailBodies.forEach((body, i) => {
+            body.position.set((i - 0.5) * 0.115, 0.71, 10);
+            body.velocity.set(0, 0, 0);
+            body.angularVelocity.set(0, 0, 0);
+            body.quaternion.set(0, 0, 0, 1);
+            body.type = CANNON.Body.KINEMATIC;
+        });
+    }
+
+    /**
      * Check if ball crossed boundary rope
      * Uses GAME_CONFIG.scoring.boundaryRope for the distance
      */

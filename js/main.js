@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=108';
-import { HandTracking } from './handTracking.js?v=108';
-import { Renderer } from './renderer.js?v=108';
-import { Physics } from './physics.js?v=108';
-import { Bowling } from './bowling.js?v=108';
-import { Batting } from './batting.js?v=108';
-import { Bat } from './bat.js?v=108'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=108';
-import { ShotStateMachine } from './shotStateMachine.js?v=108';
-import { TimingSystem } from './timingSystem.js?v=108';
+import { Camera } from './camera.js?v=109';
+import { HandTracking } from './handTracking.js?v=109';
+import { Renderer } from './renderer.js?v=109';
+import { Physics } from './physics.js?v=109';
+import { Bowling } from './bowling.js?v=109';
+import { Batting } from './batting.js?v=109';
+import { Bat } from './bat.js?v=109'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=109';
+import { ShotStateMachine } from './shotStateMachine.js?v=109';
+import { TimingSystem } from './timingSystem.js?v=109';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -668,6 +668,15 @@ class CricketARGame {
             this.updateBallVisuals();
         }
 
+        // === CHECK FOR WICKET COLLISION (BOWLED) ===
+        if (this.state === 'batting') {
+            const wicketHit = this.physics.checkWicketCollision();
+            if (wicketHit) {
+                this.handleDismissal(wicketHit);
+                return; // Stop processing
+            }
+        }
+
         // Check for delivery completion
         if (this.state === 'batting') {
             this.checkDeliveryComplete();
@@ -767,6 +776,42 @@ class CricketARGame {
         console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - ${resultText} | Bounced: ${hasBounced}`);
 
         // Reset for next ball after delay
+        setTimeout(() => {
+            this.resetForNextDelivery();
+        }, 3000);
+    }
+
+    /**
+     * Handle player dismissal (Bowled)
+     */
+    handleDismissal(dismissal) {
+        console.log(`🔴 DISMISSAL: ${dismissal.type.toUpperCase()}!`, dismissal);
+
+        // Update state
+        this.state = 'dismissed';
+
+        // Increment wickets
+        this.wickets++;
+        this.ui.updateWickets(this.wickets);
+
+        // Trigger wicket destruction physics
+        this.physics.destroyWicket(dismissal);
+
+        // Show dismissal message
+        this.ui.showShotResult(`BOWLED! You're OUT!`);
+
+        console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - Wickets: ${this.wickets}/10`);
+
+        // Check if all out
+        if (this.wickets >= 10) {
+            setTimeout(() => {
+                alert(`ALL OUT! Final Score: ${this.totalRuns}/${this.totalBalls}`);
+                // Could trigger end of innings here
+            }, 3000);
+            return;
+        }
+
+        // Reset for next delivery after 3 seconds
         setTimeout(() => {
             this.resetForNextDelivery();
         }, 3000);
