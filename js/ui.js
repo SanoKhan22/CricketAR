@@ -53,8 +53,18 @@ export class UI {
 
             // Overlays
             cameraOverlay: document.getElementById('camera-overlay'),
-            ballTrajectoryOverlay: document.getElementById('ball-trajectory-overlay')
+            ballTrajectoryOverlay: document.getElementById('ball-trajectory-overlay'),
+
+            // Game Over
+            gameOverScreen: document.getElementById('game-over-screen'),
+            finalRuns: document.getElementById('final-runs'),
+            finalWickets: document.getElementById('final-wickets'),
+            finalOvers: document.getElementById('final-overs'),
+            playAgainBtn: document.getElementById('play-again-btn')
         };
+
+        // Callbacks
+        this.onRestart = null;
 
         // Set up event listeners
         this.setupEventListeners();
@@ -77,6 +87,13 @@ export class UI {
         this.elements.randomBtn.addEventListener('click', () => {
             if (this.onRandom) this.onRandom();
         });
+
+        if (this.elements.playAgainBtn) {
+            this.elements.playAgainBtn.addEventListener('click', () => {
+                this.hideGameOver();
+                if (this.onRestart) this.onRestart();
+            });
+        }
     }
 
     /**
@@ -326,8 +343,33 @@ export class UI {
     /**
      * Set callback handlers
      */
-    setCallbacks(onBowl, onRandom) {
+    setCallbacks(onBowl, onRandom, onRestart) {
         this.onBowl = onBowl;
         this.onRandom = onRandom;
+        this.onRestart = onRestart;
+    }
+
+    /**
+     * Show Game Over Screen
+     */
+    showGameOver(runs, wickets, balls) {
+        if (!this.elements.gameOverScreen) return;
+
+        this.elements.finalRuns.textContent = runs;
+        this.elements.finalWickets.textContent = wickets;
+
+        const overs = Math.floor(balls / 6) + '.' + (balls % 6);
+        this.elements.finalOvers.textContent = overs;
+
+        this.elements.gameOverScreen.classList.add('visible');
+    }
+
+    /**
+     * Hide Game Over Screen
+     */
+    hideGameOver() {
+        if (this.elements.gameOverScreen) {
+            this.elements.gameOverScreen.classList.remove('visible');
+        }
     }
 }

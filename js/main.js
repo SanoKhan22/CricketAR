@@ -133,7 +133,8 @@ class CricketARGame {
             // Set up UI callbacks
             this.ui.setCallbacks(
                 () => this.bowl(),
-                () => this.randomBowl()
+                () => this.randomBowl(),
+                () => this.restartGame()
             );
 
             // === SWING UI CONTROLS ===
@@ -882,14 +883,29 @@ class CricketARGame {
         // Check if all out
         if (this.wickets >= 10) {
             setTimeout(() => {
-                alert(`ALL OUT! Final Score: ${this.totalRuns}/${this.totalBalls}`);
-                // Could trigger end of innings here
-            }, 3000);
+                this.ui.showGameOver(this.totalRuns, this.wickets, this.totalBalls);
+            }, 2000);
             return;
         }
 
         // Schedule next delivery
         this.scheduleNextDelivery();
+    }
+
+    /**
+     * Restart the full game
+     */
+    restartGame() {
+        console.log('🔄 RESTARTING GAME...');
+        this.totalRuns = 0;
+        this.totalBalls = 0;
+        this.wickets = 0;
+
+        this.ui.updateScore(0, 0);
+        this.ui.updateWickets(0);
+        this.ui.showShotResult('');
+
+        this.resetForNextDelivery();
     }
 
     /**
