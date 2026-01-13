@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=101';
-import { HandTracking } from './handTracking.js?v=101';
-import { Renderer } from './renderer.js?v=101';
-import { Physics } from './physics.js?v=101';
-import { Bowling } from './bowling.js?v=101';
-import { Batting } from './batting.js?v=101';
-import { Bat } from './bat.js?v=101'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=101';
-import { ShotStateMachine } from './shotStateMachine.js?v=101';
-import { TimingSystem } from './timingSystem.js?v=101';
+import { Camera } from './camera.js?v=102';
+import { HandTracking } from './handTracking.js?v=102';
+import { Renderer } from './renderer.js?v=102';
+import { Physics } from './physics.js?v=102';
+import { Bowling } from './bowling.js?v=102';
+import { Batting } from './batting.js?v=102';
+import { Bat } from './bat.js?v=102'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=102';
+import { ShotStateMachine } from './shotStateMachine.js?v=102';
+import { TimingSystem } from './timingSystem.js?v=102';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -487,8 +487,15 @@ class CricketARGame {
 
 
             // Show hit message with timing quality
-            const zoneDisplay = `${collision.zone.toUpperCase()}! ${timingQuality} timing - ${batSpeed.toFixed(1)}m/s`;
-            this.ui.showShotResult(zoneDisplay);
+            // Show detailed feedback
+            this.lastShotData = {
+                shotName: shot.name,
+                timing: timingQuality,
+                zone: collision.zone,
+                speed: batSpeed,
+                runs: 0 // Will be updated later
+            };
+            this.ui.showDetailedFeedback(this.lastShotData);
 
             // Update persistent speed display
             this.ui.updateSwingSpeed(batSpeed);
@@ -723,20 +730,25 @@ class CricketARGame {
         // Update stadium scoreboard
         this.renderer.stadiumEnvironment.updateScore(this.totalRuns, this.totalBalls);
 
-        // Show result with proper formatting
+        // Show result
         let resultText = `${distance.toFixed(1)}m`;
-        if (runs === 6) {
-            resultText = `🎉 SIX! ${resultText} (over the rope!)`;
-        } else if (runs === 4) {
-            resultText = `🏏 FOUR! ${resultText} (bounced to boundary)`;
-        } else if (runs === 0) {
-            resultText = `Dot Ball (${resultText})`;
-        } else {
-            resultText = `${runs} Run${runs > 1 ? 's' : ''} (${resultText})`;
-        }
 
-        this.ui.showShotResult(resultText);
-        this.ui.showLastShot('Hit', runs);
+        if (this.hasHitThisDelivery && this.lastShotData) {
+            // Update runs in the detailed feedback
+            this.lastShotData.runs = runs;
+            this.ui.showDetailedFeedback(this.lastShotData);
+            this.ui.showLastShot(this.lastShotData.shotName, runs);
+            resultText = `${this.lastShotData.shotName} - ${runs} runs`;
+        } else {
+            // Simple result for misses/leaves
+            if (runs === 0) {
+                resultText = `Dot Ball`;
+            } else {
+                resultText = `${runs} Run${runs > 1 ? 's' : ''} (Byes)`;
+            }
+            this.ui.showShotResult(resultText);
+            this.ui.showLastShot('Miss', runs);
+        }
 
         console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - ${resultText} | Bounced: ${hasBounced}`);
 
