@@ -168,7 +168,7 @@ export class Physics {
 
             this.world.addBody(body);
             this.bailBodies.push(body);
-        });
+        }
 
         console.log('🏏 Wicket physics created: 3 stumps + 2 bails');
     }

@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=112';
-import { HandTracking } from './handTracking.js?v=112';
-import { Renderer } from './renderer.js?v=112';
-import { Physics } from './physics.js?v=112';
-import { Bowling } from './bowling.js?v=112';
-import { Batting } from './batting.js?v=112';
-import { Bat } from './bat.js?v=112'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=112';
-import { ShotStateMachine } from './shotStateMachine.js?v=112';
-import { TimingSystem } from './timingSystem.js?v=112';
+import { Camera } from './camera.js?v=113';
+import { HandTracking } from './handTracking.js?v=113';
+import { Renderer } from './renderer.js?v=113';
+import { Physics } from './physics.js?v=113';
+import { Bowling } from './bowling.js?v=113';
+import { Batting } from './batting.js?v=113';
+import { Bat } from './bat.js?v=113'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=113';
+import { ShotStateMachine } from './shotStateMachine.js?v=113';
+import { TimingSystem } from './timingSystem.js?v=113';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
