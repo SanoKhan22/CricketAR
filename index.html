@@ -170,10 +170,24 @@
                 <span id="swing-speed" class="value">0</span>
             </div>
         </div>
+
+        <!-- Dismissal Popup -->
+        <div id="dismissal-popup" class="hidden">
+            <div class="dismissal-overlay"></div>
+            <div class="dismissal-card">
+                <div class="dismissal-icon">🔴</div>
+                <div class="dismissal-type" id="dismissal-type-text">BOWLED!</div>
+                <div class="dismissal-details">
+                    <p id="dismissal-message">Middle stump demolished!</p>
+                    <p id="dismissal-stats"></p>
+                </div>
+                <button id="dismissal-continue-btn" class="control-btn primary">Continue</button>
+            </div>
+        </div>
     </div>
 
     <!-- Game Scripts -->
-    <script type="module" src="js/main.js?v=104"></script>
+    <script type="module" src="js/main.js?v=105"></script>
 </body>
 
 </html>

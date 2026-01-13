@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=104';
-import { HandTracking } from './handTracking.js?v=104';
-import { Renderer } from './renderer.js?v=104';
-import { Physics } from './physics.js?v=104';
-import { Bowling } from './bowling.js?v=104';
-import { Batting } from './batting.js?v=104';
-import { Bat } from './bat.js?v=104'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=104';
-import { ShotStateMachine } from './shotStateMachine.js?v=104';
-import { TimingSystem } from './timingSystem.js?v=104';
+import { Camera } from './camera.js?v=105';
+import { HandTracking } from './handTracking.js?v=105';
+import { Renderer } from './renderer.js?v=105';
+import { Physics } from './physics.js?v=105';
+import { Bowling } from './bowling.js?v=105';
+import { Batting } from './batting.js?v=105';
+import { Bat } from './bat.js?v=105'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=105';
+import { ShotStateMachine } from './shotStateMachine.js?v=105';
+import { TimingSystem } from './timingSystem.js?v=105';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -800,23 +800,19 @@ class CricketARGame {
         this.state = 'dismissed';
         this.isRunning = false;
 
-        // TODO: Trigger animations
+        // TODO: Trigger animations (Phase 3-4)
         // if (dismissal.type === 'bowled') {
         //     this.renderer.stadiumEnvironment.animateWicketDestruction(dismissal);
         // } else if (dismissal.type === 'caught') {
         //     this.renderer.stadiumEnvironment.showFielderCatch(dismissal);
         // }
 
-        // TODO: Show dismissal popup
-        // this.ui.showDismissalPopup(dismissal);
-
-        // For now, just log and reset
-        alert(`${dismissal.type.toUpperCase()}! You're out!`);
-
-        setTimeout(() => {
+        // Show dismissal popup
+        this.ui.showDismissalPopup(dismissal, () => {
+            // Continue callback
             this.resetForNextDelivery();
             this.isRunning = true;
-        }, 2000);
+        });
     }
 
     /**
