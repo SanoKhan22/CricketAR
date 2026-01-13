@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=105';
-import { HandTracking } from './handTracking.js?v=105';
-import { Renderer } from './renderer.js?v=105';
-import { Physics } from './physics.js?v=105';
-import { Bowling } from './bowling.js?v=105';
-import { Batting } from './batting.js?v=105';
-import { Bat } from './bat.js?v=105'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=105';
-import { ShotStateMachine } from './shotStateMachine.js?v=105';
-import { TimingSystem } from './timingSystem.js?v=105';
+import { Camera } from './camera.js?v=106';
+import { HandTracking } from './handTracking.js?v=106';
+import { Renderer } from './renderer.js?v=106';
+import { Physics } from './physics.js?v=106';
+import { Bowling } from './bowling.js?v=106';
+import { Batting } from './batting.js?v=106';
+import { Bat } from './bat.js?v=106'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=106';
+import { ShotStateMachine } from './shotStateMachine.js?v=106';
+import { TimingSystem } from './timingSystem.js?v=106';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -800,11 +800,13 @@ class CricketARGame {
         this.state = 'dismissed';
         this.isRunning = false;
 
-        // TODO: Trigger animations (Phase 3-4)
-        // if (dismissal.type === 'bowled') {
-        //     this.renderer.stadiumEnvironment.animateWicketDestruction(dismissal);
-        // } else if (dismissal.type === 'caught') {
-        //     this.renderer.stadiumEnvironment.showFielderCatch(dismissal);
+        // Trigger animations
+        if (dismissal.type === 'bowled') {
+            this.renderer.animateWicketDestruction(dismissal);
+        }
+        // TODO: Fielder catch animation (Phase 4)
+        // else if (dismissal.type === 'caught') {
+        //     this.renderer.showFielderCatch(dismissal);
         // }
 
         // Show dismissal popup

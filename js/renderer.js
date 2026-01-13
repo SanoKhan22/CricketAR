@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js?v=105';
+import { CameraControls } from './cameraControls.js?v=106';
 import { StadiumLights } from './stadiumLights.js';
 import { StadiumEnvironment } from './stadiumEnvironment.js';
 
@@ -381,6 +381,156 @@ export class Renderer {
         wicketGroup.position.z = zPosition;
         this.scene.add(wicketGroup);
         this.wickets.push(wicketGroup);
+    }
+
+    /**
+     * Animate wicket destruction (stumps flying)
+     * @param {Object} dismissal - Dismissal data with impactPoint and impactVelocity
+     */
+    animateWicketDestruction(dismissal) {
+        console.log('💥 Animating wicket destruction!', dismissal);
+
+        // Find batting wicket (z=10)
+        const battingWicket = this.wickets.find(w => w.name === 'battingWicket');
+        if (!battingWicket) {
+            console.warn('Batting wicket not found!');
+            return;
+        }
+
+        // Hide original wicket
+        battingWicket.visible = false;
+
+        // Create flying stumps and bails
+        const flyingPieces = [];
+        const scale = 3.0; // Match batting wicket scale
+
+        // Stump positions (left, middle, right)
+        const stumpPositions = [-1, 0, 1];
+        const stumpSpacing = 0.25 * scale;
+
+        // Create 3 flying stumps
+        stumpPositions.forEach((pos, index) => {
+            const stumpGeometry = new THREE.CylinderGeometry(
+                0.12 * scale,
+                0.12 * scale,
+                1.5 * scale,
+                12
+            );
+            const stumpMaterial = new THREE.MeshLambertMaterial({ color: 0xcd5c3c });
+            const stump = new THREE.Mesh(stumpGeometry, stumpMaterial);
+
+            // Initial position
+            stump.position.set(
+                pos * stumpSpacing,
+                0.75 * scale,
+                10
+            );
+
+            // Add to scene
+            this.scene.add(stump);
+
+            // Store animation data
+            const impactForce = dismissal.impactVelocity || { x: 0, y: 5, z: 5 };
+            flyingPieces.push({
+                mesh: stump,
+                velocity: {
+                    x: impactForce.x * 0.3 + (Math.random() - 0.5) * 3,
+                    y: Math.abs(impactForce.y) * 0.5 + 5 + Math.random() * 3,
+                    z: impactForce.z * 0.3 + (Math.random() - 0.5) * 2
+                },
+                angularVelocity: {
+                    x: (Math.random() - 0.5) * 0.3,
+                    y: (Math.random() - 0.5) * 0.3,
+                    z: (Math.random() - 0.5) * 0.3
+                }
+            });
+        });
+
+        // Create 2 flying bails
+        for (let i = 0; i < 2; i++) {
+            const bailGeometry = new THREE.CylinderGeometry(
+                0.05 * scale,
+                0.05 * scale,
+                0.3 * scale,
+                8
+            );
+            const bailMaterial = new THREE.MeshLambertMaterial({ color: 0xf5e6c8 });
+            const bail = new THREE.Mesh(bailGeometry, bailMaterial);
+            bail.rotation.z = Math.PI / 2;
+
+            // Initial position (on top of stumps)
+            bail.position.set(
+                (i - 0.5) * stumpSpacing,
+                1.5 * scale + 0.1,
+                10
+            );
+
+            this.scene.add(bail);
+
+            // Bails fly higher and spin more
+            const impactForce = dismissal.impactVelocity || { x: 0, y: 5, z: 5 };
+            flyingPieces.push({
+                mesh: bail,
+                velocity: {
+                    x: impactForce.x * 0.4 + (Math.random() - 0.5) * 4,
+                    y: Math.abs(impactForce.y) * 0.6 + 8 + Math.random() * 4,
+                    z: impactForce.z * 0.4 + (Math.random() - 0.5) * 3
+                },
+                angularVelocity: {
+                    x: (Math.random() - 0.5) * 0.5,
+                    y: (Math.random() - 0.5) * 0.5,
+                    z: (Math.random() - 0.5) * 0.5
+                }
+            });
+        }
+
+        // Animate pieces
+        const gravity = -9.8;
+        const startTime = Date.now();
+        const duration = 2000; // 2 seconds
+
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const dt = 0.016; // ~60fps
+
+            if (elapsed > duration) {
+                // Clean up
+                flyingPieces.forEach(piece => {
+                    this.scene.remove(piece.mesh);
+                });
+                // Restore wicket
+                battingWicket.visible = true;
+                return;
+            }
+
+            // Update each piece
+            flyingPieces.forEach(piece => {
+                // Apply gravity
+                piece.velocity.y += gravity * dt;
+
+                // Update position
+                piece.mesh.position.x += piece.velocity.x * dt;
+                piece.mesh.position.y += piece.velocity.y * dt;
+                piece.mesh.position.z += piece.velocity.z * dt;
+
+                // Update rotation
+                piece.mesh.rotation.x += piece.angularVelocity.x;
+                piece.mesh.rotation.y += piece.angularVelocity.y;
+                piece.mesh.rotation.z += piece.angularVelocity.z;
+
+                // Bounce off ground
+                if (piece.mesh.position.y < 0) {
+                    piece.mesh.position.y = 0;
+                    piece.velocity.y *= -0.4; // Bounce with energy loss
+                    piece.velocity.x *= 0.8; // Friction
+                    piece.velocity.z *= 0.8;
+                }
+            });
+
+            requestAnimationFrame(animate);
+        };
+
+        animate();
     }
 
     /**
