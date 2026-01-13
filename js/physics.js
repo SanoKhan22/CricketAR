@@ -328,8 +328,8 @@ export class Physics {
             );
         });
 
-        // Reset after 2 seconds
-        setTimeout(() => this.resetWicket(), 2000);
+        // Reset after 3 seconds
+        setTimeout(() => this.resetWicket(), 3000);
     }
 
     /**

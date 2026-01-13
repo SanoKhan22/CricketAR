@@ -608,7 +608,7 @@ class CricketARGame {
 
         // Set up callback for scoring after 2nd bounce
         this.physics.onSecondBounce = (distance) => {
-            if (this.state !== 'delivery_complete') {
+            if (this.state !== 'delivery_complete' && this.state !== 'dismissed') {
                 this.completeDelivery(distance);
             }
         };
@@ -685,18 +685,19 @@ class CricketARGame {
         if (this.state === 'bowling' || this.state === 'batting' || this.state === 'dismissed') {
             this.physics.update(deltaTime);
 
+            // === CHECK FOR WICKET COLLISION (BOWLED) ===
+            // Check immediately after physics update to prevent race conditions with scoring
+            if (this.state === 'batting') {
+                const wicketHit = this.physics.checkWicketCollision();
+                if (wicketHit) {
+                    this.handleDismissal(wicketHit);
+                    // State is now 'dismissed', so subsequent visual updates won't trigger scoring
+                }
+            }
+
             // Only update ball visuals when ball is in play
             if (this.state !== 'dismissed') {
                 this.updateBallVisuals();
-            }
-        }
-
-        // === CHECK FOR WICKET COLLISION (BOWLED) ===
-        if (this.state === 'batting') {
-            const wicketHit = this.physics.checkWicketCollision();
-            if (wicketHit) {
-                this.handleDismissal(wicketHit);
-                // Don't return - continue game loop for animation
             }
         }
 
@@ -806,10 +807,8 @@ class CricketARGame {
 
         console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - ${resultText} | Bounced: ${hasBounced}`);
 
-        // Reset for next ball after delay
-        setTimeout(() => {
-            this.resetForNextDelivery();
-        }, 3000);
+        // Schedule next delivery
+        this.scheduleNextDelivery();
     }
 
     /**
@@ -842,10 +841,8 @@ class CricketARGame {
             return;
         }
 
-        // Reset for next delivery after 3 seconds
-        setTimeout(() => {
-            this.resetForNextDelivery();
-        }, 3000);
+        // Schedule next delivery
+        this.scheduleNextDelivery();
     }
 
     /**
@@ -909,10 +906,23 @@ class CricketARGame {
 
         this.ui.showShotResult(resultText);
 
-        // Reset for next delivery
+        // Schedule next delivery
+        this.scheduleNextDelivery();
+    }
+
+    /**
+     * Schedule reset with Get Ready animation
+     */
+    scheduleNextDelivery() {
+        // Show "Get Ready" at 3.5 seconds
+        setTimeout(() => {
+            this.ui.showGetReady();
+        }, 3500);
+
+        // Reset game at 5 seconds
         setTimeout(() => {
             this.resetForNextDelivery();
-        }, 3000);
+        }, 5000);
     }
 
     /**

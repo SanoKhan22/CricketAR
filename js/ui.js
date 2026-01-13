@@ -213,6 +213,18 @@ export class UI {
     }
 
     /**
+     * Show Get Ready warning
+     */
+    showGetReady() {
+        this.elements.shotResult.textContent = "⚠️ Next Ball ⚠️";
+        this.elements.shotResult.classList.add('visible');
+
+        setTimeout(() => {
+            this.elements.shotResult.classList.remove('visible');
+        }, 1500);
+    }
+
+    /**
      * Update ball position in camera overlay
      */
     updateBallOverlay(position, cameraWidth, cameraHeight) {
