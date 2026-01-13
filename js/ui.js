@@ -37,6 +37,7 @@ export class UI {
             // Score
             runs: document.getElementById('runs'),
             balls: document.getElementById('balls'),
+            wickets: document.getElementById('wickets'),
             lastShot: document.getElementById('last-shot'),
             swingSpeed: document.getElementById('swing-speed'),
 
@@ -159,6 +160,13 @@ export class UI {
     updateScore(runs, balls) {
         this.elements.runs.textContent = runs;
         this.elements.balls.textContent = balls;
+    }
+
+    /**
+     * Update wickets display
+     */
+    updateWickets(wickets) {
+        this.elements.wickets.textContent = wickets;
     }
 
     /**

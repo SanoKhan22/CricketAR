@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=107';
-import { HandTracking } from './handTracking.js?v=107';
-import { Renderer } from './renderer.js?v=107';
-import { Physics } from './physics.js?v=107';
-import { Bowling } from './bowling.js?v=107';
-import { Batting } from './batting.js?v=107';
-import { Bat } from './bat.js?v=107'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=107';
-import { ShotStateMachine } from './shotStateMachine.js?v=107';
-import { TimingSystem } from './timingSystem.js?v=107';
+import { Camera } from './camera.js?v=108';
+import { HandTracking } from './handTracking.js?v=108';
+import { Renderer } from './renderer.js?v=108';
+import { Physics } from './physics.js?v=108';
+import { Bowling } from './bowling.js?v=108';
+import { Batting } from './batting.js?v=108';
+import { Bat } from './bat.js?v=108'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=108';
+import { ShotStateMachine } from './shotStateMachine.js?v=108';
+import { TimingSystem } from './timingSystem.js?v=108';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -40,6 +40,7 @@ class CricketARGame {
         // Score
         this.totalRuns = 0;
         this.totalBalls = 0;
+        this.wickets = 0;
 
         // Camera dimensions
         this.cameraWidth = 0;

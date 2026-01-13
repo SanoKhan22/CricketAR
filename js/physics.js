@@ -28,6 +28,10 @@ export class Physics {
         this.swingEnabled = true;
         this.ballAge = 0;  // 0 = new, 1 = old
         this.bowlStartTime = 0;  // For flight progress tracking
+
+        // === WICKET PHYSICS ===
+        this.stumpBodies = [];  // 3 stumps (physics bodies)
+        this.bailBodies = [];   // 2 bails (physics bodies)
     }
 
     /**
@@ -47,6 +51,9 @@ export class Physics {
 
         // Create ball
         this.createBall();
+
+        // Create wicket physics bodies
+        this.createWicketPhysics();
 
         console.log('Physics initialized');
         return this;
@@ -124,6 +131,46 @@ export class Physics {
                 }
             }
         });
+    }
+
+    /**
+     * Create wicket physics bodies (3 stumps + 2 bails)
+     */
+    createWicketPhysics() {
+        const stumpPositions = [-0.115, 0, 0.115]; // 23cm apart (wicket width)
+
+        // Create 3 stumps
+        stumpPositions.forEach((x, i) => {
+            const shape = new CANNON.Cylinder(0.02, 0.02, 0.71, 8); // 2cm radius, 71cm height
+            const body = new CANNON.Body({
+                mass: 0.15, // 150g per stump
+                position: new CANNON.Vec3(x, 0.355, 10), // At batting end (z=10)
+                shape: shape
+            });
+
+            // Start as KINEMATIC (static, won't move)
+            body.type = CANNON.Body.KINEMATIC;
+
+            this.world.addBody(body);
+            this.stumpBodies.push(body);
+        });
+
+        // Create 2 bails (on top of stumps)
+        for (let i = 0; i < 2; i++) {
+            const shape = new CANNON.Box(new CANNON.Vec3(0.055, 0.01, 0.01)); // 11cm long, thin
+            const body = new CANNON.Body({
+                mass: 0.005, // 5g per bail
+                position: new CANNON.Vec3((i - 0.5) * 0.115, 0.71, 10) // On top of stumps
+            });
+
+            // Start as KINEMATIC
+            body.type = CANNON.Body.KINEMATIC;
+
+            this.world.addBody(body);
+            this.bailBodies.push(body);
+        });
+
+        console.log('🏏 Wicket physics created: 3 stumps + 2 bails');
     }
 
     /**
