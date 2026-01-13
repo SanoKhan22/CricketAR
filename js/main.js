@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=109';
-import { HandTracking } from './handTracking.js?v=109';
-import { Renderer } from './renderer.js?v=109';
-import { Physics } from './physics.js?v=109';
-import { Bowling } from './bowling.js?v=109';
-import { Batting } from './batting.js?v=109';
-import { Bat } from './bat.js?v=109'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=109';
-import { ShotStateMachine } from './shotStateMachine.js?v=109';
-import { TimingSystem } from './timingSystem.js?v=109';
+import { Camera } from './camera.js?v=110';
+import { HandTracking } from './handTracking.js?v=110';
+import { Renderer } from './renderer.js?v=110';
+import { Physics } from './physics.js?v=110';
+import { Bowling } from './bowling.js?v=110';
+import { Batting } from './batting.js?v=110';
+import { Bat } from './bat.js?v=110'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=110';
+import { ShotStateMachine } from './shotStateMachine.js?v=110';
+import { TimingSystem } from './timingSystem.js?v=110';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -685,6 +685,14 @@ class CricketARGame {
         // Update camera animations (smooth transitions)
         if (this.renderer.controls) {
             this.renderer.controls.update();
+        }
+
+        // Sync wicket visuals with physics (during dismissal)
+        if (this.state === 'dismissed') {
+            this.renderer.updateWicketPhysics(
+                this.physics.stumpBodies,
+                this.physics.bailBodies
+            );
         }
 
         // Render 3D scene

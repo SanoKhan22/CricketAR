@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { CameraControls } from './cameraControls.js?v=109';
+import { CameraControls } from './cameraControls.js?v=110';
 import { StadiumLights } from './stadiumLights.js';
 import { StadiumEnvironment } from './stadiumEnvironment.js';
 
@@ -381,6 +381,55 @@ export class Renderer {
         wicketGroup.position.z = zPosition;
         this.scene.add(wicketGroup);
         this.wickets.push(wicketGroup);
+
+        // Store references to batting wicket meshes for physics sync
+        if (name === 'batting') {
+            this.battingStumpMeshes = [];
+            this.battingBailMeshes = [];
+
+            // Extract stumps and bails from group
+            wicketGroup.children.forEach(child => {
+                if (child.geometry && child.geometry.type === 'CylinderGeometry') {
+                    const height = child.geometry.parameters.height;
+                    if (height > 1) {
+                        // It's a stump (tall cylinder)
+                        this.battingStumpMeshes.push(child);
+                    } else if (height < 1 && height > 0.2) {
+                        // It's a bail (short cylinder, rotated)
+                        this.battingBailMeshes.push(child);
+                    }
+                }
+            });
+
+            console.log(`🏏 Stored ${this.battingStumpMeshes.length} stump meshes, ${this.battingBailMeshes.length} bail meshes`);
+        }
+    }
+
+    /**
+     * Update wicket visual meshes from physics bodies
+     * @param {Array} stumpBodies - Physics bodies for stumps
+     * @param {Array} bailBodies - Physics bodies for bails
+     */
+    updateWicketPhysics(stumpBodies, bailBodies) {
+        if (!this.battingStumpMeshes || !this.battingBailMeshes) return;
+
+        // Sync stump meshes to physics bodies
+        stumpBodies.forEach((body, i) => {
+            if (this.battingStumpMeshes[i]) {
+                // Copy position from physics body
+                this.battingStumpMeshes[i].position.copy(body.position);
+                // Copy rotation from physics body
+                this.battingStumpMeshes[i].quaternion.copy(body.quaternion);
+            }
+        });
+
+        // Sync bail meshes to physics bodies
+        bailBodies.forEach((body, i) => {
+            if (this.battingBailMeshes[i]) {
+                this.battingBailMeshes[i].position.copy(body.position);
+                this.battingBailMeshes[i].quaternion.copy(body.quaternion);
+            }
+        });
     }
 
     /**
