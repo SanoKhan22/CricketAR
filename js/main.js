@@ -4,16 +4,16 @@ import * as THREE from 'three';
  * Integrates all components for the cricket batting game
  */
 
-import { Camera } from './camera.js?v=110';
-import { HandTracking } from './handTracking.js?v=110';
-import { Renderer } from './renderer.js?v=110';
-import { Physics } from './physics.js?v=110';
-import { Bowling } from './bowling.js?v=110';
-import { Batting } from './batting.js?v=110';
-import { Bat } from './bat.js?v=110'; // 3D cricket bat with zone detection
-import { UI } from './ui.js?v=110';
-import { ShotStateMachine } from './shotStateMachine.js?v=110';
-import { TimingSystem } from './timingSystem.js?v=110';
+import { Camera } from './camera.js?v=111';
+import { HandTracking } from './handTracking.js?v=111';
+import { Renderer } from './renderer.js?v=111';
+import { Physics } from './physics.js?v=111';
+import { Bowling } from './bowling.js?v=111';
+import { Batting } from './batting.js?v=111';
+import { Bat } from './bat.js?v=111'; // 3D cricket bat with zone detection
+import { UI } from './ui.js?v=111';
+import { ShotStateMachine } from './shotStateMachine.js?v=111';
+import { TimingSystem } from './timingSystem.js?v=111';
 import { GAME_CONFIG, getShot, calculateRuns } from './config.js';
 
 class CricketARGame {
@@ -77,21 +77,40 @@ class CricketARGame {
             this.ui.init();
             this.ui.setLoadingStatus('Initializing camera...');
 
-            // Initialize camera
-            await this.camera.init('camera-feed');
-            const dimensions = await this.camera.start();
-            this.cameraWidth = dimensions.width;
-            this.cameraHeight = dimensions.height;
+            // Initialize camera with timeout
+            try {
+                await this.camera.init('camera-feed');
 
-            // Set up overlay canvas
-            this.setupOverlayCanvas();
+                // Add timeout to camera start (10 seconds)
+                const cameraPromise = this.camera.start();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Camera timeout')), 10000)
+                );
 
-            this.ui.setLoadingStatus('Loading hand tracking...');
+                const dimensions = await Promise.race([cameraPromise, timeoutPromise]);
+                this.cameraWidth = dimensions.width;
+                this.cameraHeight = dimensions.height;
 
-            // Initialize hand tracking
-            await this.handTracking.init();
-            this.handTracking.onResults((results) => this.onHandResults(results));
-            await this.handTracking.start(this.camera.getVideoElement());
+                // Set up overlay canvas
+                this.setupOverlayCanvas();
+
+                this.ui.setLoadingStatus('Loading hand tracking...');
+
+                // Initialize hand tracking
+                await this.handTracking.init();
+                this.handTracking.onResults((results) => this.onHandResults(results));
+                await this.handTracking.start(this.camera.getVideoElement());
+            } catch (cameraError) {
+                console.warn('⚠️ Camera/Hand tracking failed, continuing without:', cameraError.message);
+                this.ui.setLoadingStatus('Camera unavailable - using keyboard controls only');
+
+                // Set default dimensions
+                this.cameraWidth = 640;
+                this.cameraHeight = 480;
+
+                // Wait 2 seconds to show message
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
 
             // Always enable keyboard/click controls for hitting (works in both modes)
             this.setupHitControls();
