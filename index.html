@@ -98,6 +98,24 @@
                 </label>
             </div>
 
+            <!-- NEW: Swing Controls -->
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="swing-enabled" checked />
+                    Enable Swing
+                </label>
+            </div>
+
+            <div class="control-group" id="swing-controls">
+                <label>Swing Type</label>
+                <select id="swing-type">
+                    <option value="none">No Swing</option>
+                    <option value="inswing">Inswing ↙️</option>
+                    <option value="outswing" selected>Outswing ↗️</option>
+                    <option value="random">Random 🎲</option>
+                </select>
+            </div>
+
             <button id="random-btn" class="control-btn" title="Random delivery">
                 🎲
             </button>

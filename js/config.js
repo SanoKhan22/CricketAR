@@ -62,6 +62,40 @@ export const GAME_CONFIG = {
             medium: 0.92,   // Slight penalty
             fast: 0.82,     // Harder to control
             express: 0.70   // Very hard to time
+        },
+
+        // === BALL SWING PHYSICS ===
+        // Based on real cricket aerodynamics
+        swing: {
+            enabled: true,
+
+            // Swing strength based on speed (m/s)
+            // 1 m/s ≈ 3.6 km/h
+            speedRanges: {
+                noSwing: { min: 0, max: 20 },       // Too slow (<72 km/h)
+                conventional: { min: 20, max: 38 }, // 72-137 km/h (OPTIMAL)
+                reverse: { min: 38, max: 50 }       // >137 km/h (high speed)
+            },
+
+            // Maximum lateral deviation (meters)
+            maxDeviation: {
+                conventional: 0.7,  // 70cm swing at peak
+                reverse: 0.5        // 50cm reverse swing
+            },
+
+            // Seam angle effect (degrees) - optimal is ~20°
+            seamAngle: 20,
+
+            // Swing curve shape (how quickly it swings)
+            // Higher = later swing (more realistic)
+            curveExponent: 2.5,
+
+            // Ball age effect (0 = new, 1 = old)
+            ballAge: {
+                new: 1.0,      // 100% conventional swing
+                worn: 0.5,     // 50% conventional, enables reverse
+                old: 0.2       // 20% conventional, strong reverse
+            }
         }
     },
 

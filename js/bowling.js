@@ -9,6 +9,10 @@ export class Bowling {
         this.line = 'middle';
         this.length = 'good';
 
+        // NEW: Swing parameters
+        this.swingType = 'outswing';  // 'inswing', 'outswing', 'none', 'random'
+        this.swingEnabled = true;
+
         // Speed mappings (km/h to m/s)
         this.speedMap = {
             'slow': 22,      // ~80 km/h
@@ -74,6 +78,20 @@ export class Bowling {
     }
 
     /**
+     * Set swing type
+     */
+    setSwing(type) {
+        this.swingType = type;
+    }
+
+    /**
+     * Set swing enabled
+     */
+    setSwingEnabled(enabled) {
+        this.swingEnabled = enabled;
+    }
+
+    /**
      * Generate bowling parameters
      */
     getDeliveryParams() {
@@ -82,7 +100,10 @@ export class Bowling {
             line: this.lineMap[this.line],
             length: this.lengthMap[this.length],
             spin: 0,
-            swing: 0
+            swing: 0,
+            // NEW: Swing parameters
+            swingType: this.swingType,
+            swingEnabled: this.swingEnabled
         };
     }
 
@@ -97,6 +118,10 @@ export class Bowling {
         this.speed = speeds[Math.floor(Math.random() * speeds.length)];
         this.line = lines[Math.floor(Math.random() * lines.length)];
         this.length = lengths[Math.floor(Math.random() * lengths.length)];
+
+        // NEW: Randomize swing type too
+        const swingTypes = ['inswing', 'outswing', 'none'];
+        this.swingType = swingTypes[Math.floor(Math.random() * swingTypes.length)];
 
         // Add random variation
         const variation = this.getRandomVariation();

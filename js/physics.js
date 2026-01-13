@@ -22,6 +22,12 @@ export class Physics {
 
         // Store config reference for easy access
         this.config = GAME_CONFIG;
+
+        // === SWING PHYSICS ===
+        this.currentSwingType = 'none';  // 'inswing', 'outswing', 'none'
+        this.swingEnabled = true;
+        this.ballAge = 0;  // 0 = new, 1 = old
+        this.bowlStartTime = 0;  // For flight progress tracking
     }
 
     /**
@@ -304,10 +310,101 @@ export class Physics {
     }
 
     /**
+     * Calculate swing force based on ball speed and type
+     * @param {number} speed - Ball speed in m/s
+     * @param {string} swingType - 'inswing', 'outswing', 'none'
+     * @param {number} ballAge - 0 (new) to 1 (old)
+     * @returns {Object} - {x: lateral force, strength: 0-1, isReverse: boolean}
+     */
+    calculateSwingForce(speed, swingType, ballAge = 0) {
+        if (swingType === 'none' || !this.config.physics.swing.enabled) {
+            return { x: 0, strength: 0, isReverse: false };
+        }
+
+        const { speedRanges, maxDeviation, curveExponent } = this.config.physics.swing;
+
+        // Determine swing type based on speed
+        let swingStrength = 0;
+        let isReverse = false;
+
+        if (speed >= speedRanges.conventional.min &&
+            speed <= speedRanges.conventional.max) {
+            // Conventional swing (optimal range: 70-85 mph)
+            const midSpeed = (speedRanges.conventional.min + speedRanges.conventional.max) / 2;
+            const speedFactor = 1 - Math.abs(speed - midSpeed) / midSpeed;
+            swingStrength = speedFactor * (1 - ballAge * 0.5);
+
+        } else if (speed > speedRanges.reverse.min) {
+            // Reverse swing (high speed + old ball)
+            swingStrength = ballAge * 0.8; // Needs worn ball
+            isReverse = true;
+        }
+
+        // Calculate lateral deviation
+        const maxDev = isReverse ? maxDeviation.reverse : maxDeviation.conventional;
+        const lateralForce = maxDev * swingStrength;
+
+        // Direction: inswing = negative X (towards batsman/leg side)
+        //            outswing = positive X (away from batsman/off side)
+        let direction = 1;
+        if (swingType === 'inswing') {
+            direction = isReverse ? 1 : -1; // Reverse flips direction
+        } else if (swingType === 'outswing') {
+            direction = isReverse ? -1 : 1;
+        }
+
+        return {
+            x: lateralForce * direction,
+            strength: swingStrength,
+            isReverse: isReverse
+        };
+    }
+
+    /**
+     * Get flight progress (0 = bowler end, 1 = batsman end)
+     */
+    getFlightProgress() {
+        const startZ = -10;  // Bowler end
+        const endZ = 10;     // Batsman end
+        const currentZ = this.ballBody.position.z;
+
+        return Math.max(0, Math.min(1, (currentZ - startZ) / (endZ - startZ)));
+    }
+
+    /**
      * Update physics simulation with ground friction
      */
     update(deltaTime = 1 / 60) {
         this.world.step(deltaTime);
+
+        // === SWING FORCE (DURING FLIGHT) ===
+        // Apply swing force if ball is in air and swing is enabled
+        if (this.ballBody && this.ballBody.position.y > 0.5 && this.swingEnabled) {
+            const speed = this.ballBody.velocity.length();
+            const swing = this.calculateSwingForce(
+                speed,
+                this.currentSwingType,
+                this.ballAge
+            );
+
+            // Apply lateral force (swing happens gradually)
+            // Use curve to make swing happen later in flight (more realistic)
+            const flightProgress = this.getFlightProgress(); // 0 to 1
+            const swingCurve = Math.pow(flightProgress, this.config.physics.swing.curveExponent);
+
+            const swingForce = new CANNON.Vec3(
+                swing.x * swingCurve * 10, // Lateral (X-axis)
+                0,                          // No vertical
+                0                           // No forward/back
+            );
+
+            this.ballBody.applyForce(swingForce, this.ballBody.position);
+
+            // Visual indicator (log once when swing is significant)
+            if (swing.strength > 0.3 && flightProgress > 0.3 && flightProgress < 0.35) {
+                console.log(`🌪️ ${swing.isReverse ? 'REVERSE' : 'CONVENTIONAL'} ${this.currentSwingType.toUpperCase()}! Strength: ${(swing.strength * 100).toFixed(0)}%`);
+            }
+        }
 
         // === GROUND FRICTION ===
         // Apply friction ONLY when ball is on ground (y ≈ ball radius 0.35)

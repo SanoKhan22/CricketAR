@@ -205,35 +205,6 @@ export class UI {
     }
 
     /**
-     * Show detailed shot feedback
-     */
-    showDetailedFeedback(data) {
-        const { shotName, timing, zone, speed, runs } = data;
-
-        // Format HTML content
-        let html = `
-            <div class="feedback-shot">${shotName}</div>
-            <div class="feedback-details">
-                <span class="feedback-timing ${timing.toLowerCase()}">${timing} Timing</span>
-                <span class="feedback-zone">Hit: ${zone}</span>
-                <span class="feedback-speed">${speed.toFixed(1)} m/s</span>
-            </div>
-        `;
-
-        if (runs > 0) {
-            const runClass = runs >= 4 ? 'boundary' : 'runs';
-            html += `<div class="feedback-runs ${runClass}">${runs} RUNS${runs >= 4 ? '!' : ''}</div>`;
-        }
-
-        this.elements.shotResult.innerHTML = html;
-        this.elements.shotResult.classList.add('visible', 'detailed');
-
-        setTimeout(() => {
-            this.elements.shotResult.classList.remove('visible', 'detailed');
-        }, 3000);
-    }
-
-    /**
      * Update ball position in camera overlay
      */
     updateBallOverlay(position, cameraWidth, cameraHeight) {

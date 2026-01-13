@@ -116,6 +116,26 @@ class CricketARGame {
                 () => this.randomBowl()
             );
 
+            // === SWING UI CONTROLS ===
+            document.getElementById('swing-enabled').addEventListener('change', (e) => {
+                this.bowling.setSwingEnabled(e.target.checked);
+                document.getElementById('swing-controls').style.display =
+                    e.target.checked ? 'flex' : 'none';
+            });
+
+            document.getElementById('swing-type').addEventListener('change', (e) => {
+                let swingType = e.target.value;
+
+                // Random swing - pick one randomly
+                if (swingType === 'random') {
+                    const types = ['inswing', 'outswing', 'none'];
+                    swingType = types[Math.floor(Math.random() * types.length)];
+                    console.log(`🎲 Random swing selected: ${swingType}`);
+                }
+
+                this.bowling.setSwing(swingType);
+            });
+
             // Hide loading screen
             setTimeout(() => {
                 this.ui.hideLoading();
@@ -487,15 +507,8 @@ class CricketARGame {
 
 
             // Show hit message with timing quality
-            // Show detailed feedback
-            this.lastShotData = {
-                shotName: shot.name,
-                timing: timingQuality,
-                zone: collision.zone,
-                speed: batSpeed,
-                runs: 0 // Will be updated later
-            };
-            this.ui.showDetailedFeedback(this.lastShotData);
+            const zoneDisplay = `${collision.zone.toUpperCase()}! ${timingQuality} timing - ${batSpeed.toFixed(1)}m/s`;
+            this.ui.showShotResult(zoneDisplay);
 
             // Update persistent speed display
             this.ui.updateSwingSpeed(batSpeed);
@@ -567,6 +580,11 @@ class CricketARGame {
 
         // Store bowl speed for hit calculation (momentum transfer)
         this.currentBowlSpeed = params.speed;
+
+        // === PASS SWING PARAMETERS TO PHYSICS ===
+        this.physics.currentSwingType = params.swingType;
+        this.physics.swingEnabled = params.swingEnabled;
+        this.physics.ballAge = 0; // New ball for now (can be dynamic later)
 
         // Set up callback for scoring after 2nd bounce
         this.physics.onSecondBounce = (distance) => {
@@ -730,25 +748,20 @@ class CricketARGame {
         // Update stadium scoreboard
         this.renderer.stadiumEnvironment.updateScore(this.totalRuns, this.totalBalls);
 
-        // Show result
+        // Show result with proper formatting
         let resultText = `${distance.toFixed(1)}m`;
-
-        if (this.hasHitThisDelivery && this.lastShotData) {
-            // Update runs in the detailed feedback
-            this.lastShotData.runs = runs;
-            this.ui.showDetailedFeedback(this.lastShotData);
-            this.ui.showLastShot(this.lastShotData.shotName, runs);
-            resultText = `${this.lastShotData.shotName} - ${runs} runs`;
+        if (runs === 6) {
+            resultText = `🎉 SIX! ${resultText} (over the rope!)`;
+        } else if (runs === 4) {
+            resultText = `🏏 FOUR! ${resultText} (bounced to boundary)`;
+        } else if (runs === 0) {
+            resultText = `Dot Ball (${resultText})`;
         } else {
-            // Simple result for misses/leaves
-            if (runs === 0) {
-                resultText = `Dot Ball`;
-            } else {
-                resultText = `${runs} Run${runs > 1 ? 's' : ''} (Byes)`;
-            }
-            this.ui.showShotResult(resultText);
-            this.ui.showLastShot('Miss', runs);
+            resultText = `${runs} Run${runs > 1 ? 's' : ''} (${resultText})`;
         }
+
+        this.ui.showShotResult(resultText);
+        this.ui.showLastShot('Hit', runs);
 
         console.log(`📊 SCORE: ${this.totalRuns}/${this.totalBalls} - ${resultText} | Bounced: ${hasBounced}`);
 
