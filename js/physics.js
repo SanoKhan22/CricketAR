@@ -382,6 +382,7 @@ export class Physics {
         this.ballBody.angularVelocity.set(0, 0, 0);
         this.hasBounced = false;
         this.bounceCount = 0;
+        this.onSecondBounce = null; // CRITICAL: Clear callback to prevent re-triggering
     }
 
     /**
