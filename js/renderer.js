@@ -750,6 +750,11 @@ export class Renderer {
         const width = this.canvas.clientWidth;
         const height = this.canvas.clientHeight;
 
+        if (width === 0 || height === 0) {
+            console.warn('⚠️ Canvas size is 0, skipping resize to prevent WebGL crash');
+            return;
+        }
+
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height, false); // false = don't update style, let CSS handle it

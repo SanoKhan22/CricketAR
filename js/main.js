@@ -728,8 +728,156 @@ class CricketARGame {
             palmPosition.x * camWidth,
             palmPosition.y * camHeight
         );
+    }
 
-        console.log('HIT!', shot.name, 'Power:', shot.power.toFixed(2));
+    /**
+     * Start game loop
+     */
+    start() {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        this.lastTime = performance.now();
+        console.log('▶️ Game Loop Started');
+        this.gameLoop();
+    }
+
+    /**
+     * Main Game Loop
+     */
+    gameLoop() {
+        if (!this.isRunning) return;
+
+        requestAnimationFrame(() => this.gameLoop());
+
+        try {
+            const now = performance.now();
+            const deltaTime = (now - this.lastTime) / 1000;
+            this.lastTime = now;
+
+            // Handle Menu State specifically
+            if (this.state === 'menu') {
+                this.menuTime += deltaTime;
+                if (this.renderer && this.renderer.orbitCamera) {
+                    this.renderer.orbitCamera(this.menuTime);
+                }
+                if (this.renderer) this.renderer.render();
+                return;
+            }
+
+            // --- STANDARD GAME LOOP ---
+
+            // Physics
+            this.physics.step(deltaTime);
+
+            // Hand Tracking & Bat Movement
+            if (this.handTracking.isDetected) {
+                const handPos = this.handTracking.getPalmPosition();
+                this.bat.update(handPos, deltaTime);
+                this.ui.updateBatOverlay(handPos, this.cameraWidth, this.cameraHeight);
+                this.ui.setHandStatus(true);
+            } else {
+                this.ui.setHandStatus(false);
+            }
+
+            // Bowling Logic
+            if (this.state === 'bowling') {
+                this.bowling.update(deltaTime);
+            }
+
+            // Interaction Logic (Batting/Bowled)
+            if (this.state === 'bowling' || this.state === 'batting') {
+                // 1. Bat Collision
+                if (!this.hasHitThisDelivery) {
+                    const ballPos = this.physics.getBallPosition();
+                    const collision = this.bat.checkCollision(ballPos);
+                    if (collision) {
+                        this.handleHit(collision);
+                    }
+                }
+
+                // 2. Wicket Collision (Bowled)
+                const wicketHit = this.physics.checkWicketCollision();
+                if (wicketHit) {
+                    this.handleDismissal(wicketHit);
+                }
+
+                // 3. Update Visuals
+                this.updateBallVisuals();
+            }
+
+            // Check Delivery Completion (Stop/Pass/Boundary)
+            if (this.state === 'batting') {
+                this.checkDeliveryComplete();
+            }
+
+            // Camera Animation
+            if (this.renderer.controls) {
+                this.renderer.controls.update();
+            }
+
+            // Stats
+            this.frameCount++;
+            if (now - this.lastFpsUpdate > 1000) {
+                this.fps = this.frameCount;
+                this.frameCount = 0;
+                this.lastFpsUpdate = now;
+            }
+
+            // Render
+            this.renderer.render();
+
+        } catch (e) {
+            console.error('❌ CRASH IN GAME LOOP:', e);
+        }
+    }
+
+    /**
+     * Handle Window Resize
+     */
+    handleResize() {
+        // Debounce/Delay to allow CSS transitions to finish (important for layout changes)
+        clearTimeout(this.resizeTimer);
+        this.resizeTimer = setTimeout(() => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            this.cameraWidth = width;
+            this.cameraHeight = height;
+
+            if (this.renderer && this.renderer.onResize) {
+                this.renderer.onResize();
+            }
+        }, 100);
+    }
+    /**
+     * Handle ball hitting bat
+     */
+    handleHit(collision) {
+        if (this.hasHitThisDelivery) return;
+        this.hasHitThisDelivery = true;
+
+        console.log('💥 BAT CONTACT!');
+
+        // Visuals
+        if (collision.point) {
+            this.ui.showImpactEffect(collision.point.x, collision.point.y);
+        }
+
+        // Physics: Apply force to ball
+        // The Batting class or Physics class should handle this
+        // But main.js orchestrates.
+        if (this.bat && this.bat.applyForceToBall) {
+            // If Bat class handles it
+            this.bat.applyForceToBall(collision, this.physics.ballBody);
+        } else {
+            // Fallback to Physics
+            this.physics.applyHitForce(collision);
+        }
+
+        // Camera: Track ball
+        if (this.renderer.controls && this.renderer.controls.zoomOutForBallTracking) {
+            const vel = this.physics.getBallVelocity();
+            this.renderer.controls.zoomOutForBallTracking(vel);
+        }
     }
 
     /**
@@ -749,6 +897,7 @@ class CricketARGame {
                 this.renderer.orbitCamera(this.menuTime);
             }
             this.renderer.render();
+            requestAnimationFrame((t) => this.gameLoop(t));
             return; // Skip other updates
         }
 
@@ -777,6 +926,33 @@ class CricketARGame {
             // Only update ball visuals when ball is in play
             if (this.state !== 'dismissed') {
                 this.updateBallVisuals();
+            }
+        }
+
+        // Hand Tracking & Bat Movement
+        if (this.handTracking.isDetected) {
+            const handPos = this.handTracking.getPalmPosition();
+            this.bat.update(handPos, deltaTime);
+            this.ui.updateBatOverlay(handPos, this.cameraWidth, this.cameraHeight);
+            this.ui.setHandStatus(true);
+        } else {
+            this.ui.setHandStatus(false);
+        }
+
+        // Bowling Logic
+        if (this.state === 'bowling') {
+            this.bowling.update(deltaTime);
+        }
+
+        // Interaction Logic (Batting/Bowled)
+        if (this.state === 'bowling' || this.state === 'batting') {
+            // 1. Bat Collision
+            if (!this.hasHitThisDelivery) {
+                const ballPos = this.physics.getBallPosition();
+                const collision = this.bat.checkCollision(ballPos);
+                if (collision) {
+                    this.handleHit(collision);
+                }
             }
         }
 
@@ -1096,24 +1272,7 @@ class CricketARGame {
         }
     }
 
-    /**
-     * Start game loop
-     */
-    start() {
-        this.isRunning = true;
-        this.lastTime = performance.now();
-        requestAnimationFrame((t) => this.gameLoop(t));
-    }
 
-    /**
-     * Stop game
-     */
-    stop() {
-        this.isRunning = false;
-        this.camera.stop();
-        this.handTracking.stop();
-        this.renderer.stop();
-    }
 }
 
 // Initialize game when DOM is ready
