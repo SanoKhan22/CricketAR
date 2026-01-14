@@ -73,7 +73,7 @@ export class Renderer {
             alpha: true
         });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+        this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight, false);
 
         // Add lights
         this.addLights();
@@ -736,7 +736,7 @@ export class Renderer {
 
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
-        this.renderer.setSize(width, height);
+        this.renderer.setSize(width, height, false); // false = don't update style, let CSS handle it
     }
 
     /**

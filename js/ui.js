@@ -79,8 +79,43 @@ export class UI {
         // Create ball overlay element
         this.createBallOverlay();
 
+        // Setup Layout Control
+        this.setupLayoutControl();
+
         console.log('UI initialized');
         return this;
+    }
+
+    setupLayoutControl() {
+        const buttons = document.querySelectorAll('.layout-btn');
+        const container = document.getElementById('game-container');
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all
+                buttons.forEach(b => b.classList.remove('active'));
+                // Add to clicked
+                btn.classList.add('active');
+
+                // Get mode
+                const mode = btn.dataset.mode;
+
+                // Remove existing layout classes
+                container.classList.remove('layout-cam-focus', 'layout-game-focus');
+
+                // Apply new class
+                if (mode === 'cam') {
+                    container.classList.add('layout-cam-focus'); // Cam 60%
+                } else if (mode === 'game') {
+                    container.classList.add('layout-game-focus'); // Game 60%
+                }
+
+                // Force resize event for Three.js
+                for (let i = 1; i <= 10; i++) {
+                    setTimeout(() => window.dispatchEvent(new Event('resize')), i * 50);
+                }
+            });
+        });
     }
 
     /**
