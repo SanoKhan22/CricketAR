@@ -460,8 +460,19 @@ export class Physics {
         // - Shoulder/top edge: ball pops UP
         // - Middle: clean intended trajectory
         // - Lower/toe: ball stays LOW
-        const angleModifier = getZoneAngleModifier(zoneName);
-        const adjustedAngle = Math.max(2, Math.min(55, launchAngle + angleModifier));
+        let angleModifier = getZoneAngleModifier(zoneName);
+        let currentLaunchAngle = launchAngle;
+
+        // === PERFECT CONTACT BOOST (Fix for hardware limits) ===
+        // If user times it perfectly with the middle of the bat, 
+        // we override the speed limit to allow big hits.
+        if (timingMultiplier >= 1.1 && zoneName === 'middle' && batSpeed > 2.0) {
+            console.log('✨ PERFECT TIMING BOOST! Forcing power shot.');
+            batSpeed = Math.max(batSpeed, 18.0); // Force "Maximum" speed category
+            currentLaunchAngle = 30; // Optimal loft for six
+        }
+
+        const adjustedAngle = Math.max(2, Math.min(55, currentLaunchAngle + angleModifier));
 
         // === EXIT VELOCITY CALCULATION ===
         // Real cricket: bat speeds 25-40 m/s, ball exits at 25-55 m/s
