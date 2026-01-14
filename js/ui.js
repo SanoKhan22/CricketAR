@@ -195,12 +195,18 @@ export class UI {
         // Format CRR
         if (this.elements.tvCRR) this.elements.tvCRR.textContent = crr.toFixed(1);
 
-        // Update Timeline
+        // Update Timeline (Show only CURRENT over balls)
         if (this.elements.tvTimeline) {
             this.elements.tvTimeline.innerHTML = ''; // Clear current
 
-            // Show last 6 balls (or fewer)
-            const recentBalls = history.slice(-6);
+            // Calculate how many balls in current over
+            // If remainder is 0, we just finished an over, so show full 6 balls
+            // If remainder is 1, we are at ball 1 of new over, so show 1 ball
+            const remainder = balls % 6;
+            const ballsOnScreen = remainder === 0 ? 6 : remainder;
+
+            // Safe slice from end of history
+            const recentBalls = history.slice(-ballsOnScreen);
 
             recentBalls.forEach(ball => {
                 const span = document.createElement('span');
