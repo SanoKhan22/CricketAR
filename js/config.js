@@ -152,9 +152,10 @@ export const GAME_CONFIG = {
         hitThreshold: 1.0,      // Bat-ball collision distance (SKILL-BASED)
 
         // Timing zones (based on Z-axis precision)
-        perfectZone: 0.12,      // PERFECT timing
-        goodZone: 0.22,         // Good timing
-        okayZone: 0.35,         // Okay timing
+        // Relaxed for AR latency (was 0.12, 0.22, 0.35)
+        perfectZone: 0.25,      // PERFECT: 25cm window (Easier to hit)
+        goodZone: 0.45,         // Good: 45cm window
+        okayZone: 0.70,         // Okay: 70cm window
 
         // Timing multipliers
         timingMultipliers: {

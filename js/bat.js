@@ -465,11 +465,8 @@ export class Bat {
             const batSpeed = Math.min(rawSpeed, 20);
 
             // Speed factor based on bat speed
-            let speedFactor = 0.2; // Block
-            if (batSpeed >= 15) speedFactor = 1.2;      // Maximum
-            else if (batSpeed >= 10) speedFactor = 1.0; // Power
-            else if (batSpeed >= 6) speedFactor = 0.8;  // Attacking
-            else if (batSpeed >= 3) speedFactor = 0.5;  // Placement
+            // Use config-driven factor (Consistent with physics)
+            const speedFactor = getSpeedFactor(batSpeed);
 
             // Determine zone
             const zoneInfo = this.determineDetailedZone(ballPosition);
