@@ -1151,6 +1151,7 @@ class CricketARGame {
     resetForNextDelivery() {
         this.state = 'idle';
         this.hasHitThisDelivery = false;
+        this.deliveryComplete = false; // CRITICAL: Reset for next delivery
 
         this.physics.resetBall();
         this.renderer.hideBall();
