@@ -636,9 +636,10 @@ export class Physics {
         }
 
         // === GROUND FRICTION ===
-        // Apply friction ONLY when ball is on ground (y ≈ ball radius 0.35)
-        // AND vertical velocity is low (not bouncing)
-        if (this.ballBody && this.ballBody.position.y < 0.4 && Math.abs(this.ballBody.velocity.y) < 1.0) {
+        // Apply friction ONLY when ball is on/near ground
+        // Ball radius is 0.35, so y=0.35 is touching ground. 
+        // We use y < 0.7 to catch ball even during small bounces
+        if (this.ballBody && this.ballBody.position.y < 0.7 && Math.abs(this.ballBody.velocity.y) < 2.0) {
             const vel = this.ballBody.velocity;
             const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 

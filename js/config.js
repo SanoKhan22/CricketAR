@@ -31,14 +31,14 @@ export const GAME_CONFIG = {
         // Bounce behavior - realistic cricket
         // Lower restitution = ball loses more energy on bounce
         restitution: {
-            pitch: 0.20,        // REDUCED: Lower bounce
-            outfield: 0.15,     // REDUCED: Grass absorbs energy
-            boundary: 0.10      // Minimal bounce at cushion
+            pitch: 0.15,        // REDUCED: Lower bounce
+            outfield: 0.10,     // REDUCED: Grass absorbs energy
+            boundary: 0.05      // Minimal bounce at cushion
         },
         friction: {
-            pitch: 0.45,        // INCREASED: More grip stops ball faster
-            outfield: 0.40,     // INCREASED: Grass friction
-            rolling: 12.0       // INCREASED: Ball stops faster
+            pitch: 0.50,        // INCREASED: More grip stops ball faster
+            outfield: 0.50,     // INCREASED: Grass friction
+            rolling: 18.0       // INCREASED: Strong braking force
         },
 
         // Air resistance
@@ -51,9 +51,9 @@ export const GAME_CONFIG = {
         // Hand tracking bat speed: typically 0.5-3.0 m/s
         // Need to amplify to get full range of shots
         //
-        batEnergyCoefficient: 0.45,     // INCREASED: Now fixed, need more power
-        reboundEnergyCoefficient: 0.10, // INCREASED: Bowl speed matters more
-        powerBoost: 4,                // INCREASED: Amplify for proper distances
+        batEnergyCoefficient: 0.45,
+        reboundEnergyCoefficient: 0.10,
+        powerBoost: 3.2,                // REDUCED: Prevent supersonic balls
 
         // Bowl speed affects control (faster = harder to time/control)
         // Fast bowl: less control, but more rebound energy if timed right
