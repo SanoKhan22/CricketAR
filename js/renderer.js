@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import { GAME_CONFIG } from './config.js';
 import { CameraControls } from './cameraControls.js?v=113';
 import { StadiumLights } from './stadiumLights.js';
 import { StadiumEnvironment } from './stadiumEnvironment.js';
@@ -496,7 +497,8 @@ export class Renderer {
         }
 
         // Cricket ball (red sphere with seam) - bright and visible
-        const ballGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+        const ballRadius = GAME_CONFIG.physics.ballRadius;
+        const ballGeometry = new THREE.SphereGeometry(ballRadius, 16, 16);
         const ballMaterial = new THREE.MeshStandardMaterial({
             color: 0xff0000,  // Bright red
             emissive: 0x440000,  // Slight glow
@@ -506,7 +508,7 @@ export class Renderer {
         this.ball = new THREE.Mesh(ballGeometry, ballMaterial);
 
         // Add seam
-        const seamGeometry = new THREE.TorusGeometry(0.5, 0.03, 8, 32);
+        const seamGeometry = new THREE.TorusGeometry(ballRadius, 0.03, 8, 32);
         const seamMaterial = new THREE.MeshBasicMaterial({ color: 0xfef3c7 });
         const seam = new THREE.Mesh(seamGeometry, seamMaterial);
         seam.rotation.x = Math.PI / 2;

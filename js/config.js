@@ -149,7 +149,7 @@ export const GAME_CONFIG = {
     // ===========================================
     collision: {
         // Distance thresholds (meters)
-        hitThreshold: 1.0,      // Bat-ball collision distance (SKILL-BASED)
+        hitThreshold: 1.3,      // Bat-ball collision distance (Generous for AR)
 
         // Timing zones (based on Z-axis precision)
         // Relaxed for AR latency (was 0.12, 0.22, 0.35)

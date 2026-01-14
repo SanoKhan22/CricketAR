@@ -528,8 +528,8 @@ class CricketARGame {
         const ballVector = new THREE.Vector3(ballPos.x, ballPos.y, ballPos.z);
 
         // Check collision with bat (distance-based)
-        // INCREASED radius from 0.3 to 0.6 for easier hits
-        const collision = this.bat.checkCollision(ballVector, 0.6);
+        // Uses config radius (0.35) + increased threshold from config
+        const collision = this.bat.checkCollision(ballVector, GAME_CONFIG.physics.ballRadius);
 
         if (collision && collision.hit) {
             this.hasHitThisDelivery = true;
