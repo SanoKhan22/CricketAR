@@ -80,7 +80,7 @@ export class Physics {
      * Create ball body
      */
     createBall() {
-        const ballShape = new CANNON.Sphere(0.35);
+        const ballShape = new CANNON.Sphere(this.config.physics.ballRadius);
         const ballMaterial = new CANNON.Material('ball');
 
         this.ballBody = new CANNON.Body({

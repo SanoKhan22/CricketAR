@@ -26,23 +26,23 @@ export const GAME_CONFIG = {
     physics: {
         gravity: -9.82,
         ballMass: 0.163,        // Cricket ball weight in kg
-        ballRadius: 0.035,      // 35mm radius (visual: usually larger for visibility)
+        ballRadius: 0.35,       // 35cm radius (visual scaling for AR visibility)
 
         // Bounce behavior - realistic cricket
         // Lower restitution = ball loses more energy on bounce
         restitution: {
-            pitch: 0.15,        // REDUCED: Lower bounce
-            outfield: 0.10,     // REDUCED: Grass absorbs energy
-            boundary: 0.05      // Minimal bounce at cushion
+            pitch: 0.20,        // REDUCED: Lower bounce
+            outfield: 0.15,     // REDUCED: Grass absorbs energy
+            boundary: 0.10      // Minimal bounce at cushion
         },
         friction: {
-            pitch: 0.50,        // INCREASED: More grip stops ball faster
-            outfield: 0.50,     // INCREASED: Grass friction
-            rolling: 18.0       // INCREASED: Strong braking force
+            pitch: 0.45,        // INCREASED: More grip stops ball faster
+            outfield: 0.40,     // INCREASED: Grass friction
+            rolling: 12.0       // INCREASED: Ball stops faster
         },
 
         // Air resistance
-        airDrag: 0.02,          // Moderate air resistance
+        airDrag: 0.02,
 
         // === EXIT VELOCITY FORMULA ===
         // ExitVelocity = sqrt((BatSpeed² × batEnergy) + (BowlSpeed × reboundEnergy)) × zone × timing × powerBoost
@@ -51,9 +51,9 @@ export const GAME_CONFIG = {
         // Hand tracking bat speed: typically 0.5-3.0 m/s
         // Need to amplify to get full range of shots
         //
-        batEnergyCoefficient: 0.45,
-        reboundEnergyCoefficient: 0.10,
-        powerBoost: 3.2,                // REDUCED: Prevent supersonic balls
+        batEnergyCoefficient: 0.40,     // Adjusted for exponential scaling
+        reboundEnergyCoefficient: 0.12, // Increased slightly for pace response
+        powerBoost: 3.0,                // Balanced for new 1.8x max factor
 
         // Bowl speed affects control (faster = harder to time/control)
         // Fast bowl: less control, but more rebound energy if timed right
@@ -166,11 +166,12 @@ export const GAME_CONFIG = {
 
         // Bat speed categories (m/s)
         batSpeedCategories: {
-            block: { max: 3, factor: 0.15 },      // Defensive
-            placement: { max: 6, factor: 0.45 },  // Nudge/guide
-            attacking: { max: 10, factor: 0.75 }, // Attack
-            power: { max: 15, factor: 1.0 },      // Big hit
-            maximum: { max: 20, factor: 1.25 }    // Maximum effort
+            // EXPONENTIAL SCALING: Soft hands = dead ball, Hard hands = huge power
+            block: { max: 3, factor: 0.05 },      // 0.05: Dead drop (defensive)
+            placement: { max: 6, factor: 0.25 },  // 0.25: Soft push (singles)
+            attacking: { max: 10, factor: 0.60 }, // 0.60: Firm stroke (boundaries?)
+            power: { max: 15, factor: 1.0 },      // 1.00: Standard power hit
+            maximum: { max: 20, factor: 1.8 }     // 1.80: HUGE hit (Sixes)
         }
     },
 
@@ -179,7 +180,8 @@ export const GAME_CONFIG = {
     // ===========================================
     scoring: {
         // Boundary definitions
-        boundaryRope: 65,           // Main boundary line (meters)
+        // Boundary definitions
+        // Uses field.boundaryRope as single source of truth (65m)
 
         // === SCORING RULES ===
         // SIX: Ball CLEARS boundary (>= 65m) WITHOUT bouncing first
@@ -396,7 +398,8 @@ export function calculateRuns(distance, hasBounced, shotName = '') {
     // === BOUNDARY (65m+) ===
     // FOUR: bounced first, then crossed 65m
     // SIX: clean over 65m without bounce
-    if (distance >= scoring.boundaryRope) {
+    const boundaryDistance = GAME_CONFIG.field.boundaryRope;
+    if (distance >= boundaryDistance) {
         if (hasBounced) {
             console.log(`📊 FOUR! ${distance.toFixed(1)}m (bounced to boundary)`);
             return 4;
@@ -461,5 +464,5 @@ export function getZoneAngleModifier(zoneName) {
  * Check if ball crossed boundary
  */
 export function checkBoundary(distance) {
-    return distance >= GAME_CONFIG.scoring.boundaryRope;
+    return distance >= GAME_CONFIG.field.boundaryRope;
 }
