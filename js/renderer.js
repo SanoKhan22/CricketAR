@@ -540,6 +540,8 @@ export class Renderer {
                 // Full ground view for boundaries
                 this.targetCameraPos = { x: 0, y: 80, z: 60 };
                 break;
+                this.targetCameraPos = { x: 0, y: 80, z: 60 };
+                break;
         }
     }
 

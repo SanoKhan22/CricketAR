@@ -40,18 +40,110 @@
             </div>
         </div>
 
-        <!-- Main Menu (Cinematic Overlay) -->
+        <!-- Lucide Icons -->
+        <script src="https://unpkg.com/lucide@latest"></script>
+
+        <!-- Mature Main Menu  -->
         <div id="main-menu">
-            <div class="menu-content">
-                <h1 class="game-title">CRICKET <span class="highlight">AR</span></h1>
-                <p class="game-subtitle">Immersive Hand-Tracking Cricket</p>
+            <div class="menu-container">
+                <!-- Left: Branding & Action -->
+                <div class="menu-sidebar">
+                    <div class="brand">
+                        <h1>CRICKET <span class="highlight">AR</span></h1>
+                        <p>IMMERSIVE BATTING SIMULATOR</p>
+                    </div>
 
-                <button id="start-match-btn" class="menu-btn primary">
-                    <span class="btn-icon">🏏</span> PLAY MATCH
-                </button>
+                    <button id="start-match-btn" class="play-btn">
+                        <i data-lucide="play-circle"></i>
+                        <span>PLAY MATCH</span>
+                    </button>
 
-                <div class="menu-footer">
-                    <p>Powered by <span class="tech">MediaPipe</span> & <span class="tech">Three.js</span></p>
+                    <div class="menu-footer">
+                        <p>Powered by <span class="tech">MediaPipe</span></p>
+                    </div>
+                </div>
+
+                <!-- Right: Configuration Dashboard -->
+                <div class="menu-dashboard">
+                    <!-- Bowling Config Card -->
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <i data-lucide="settings-2"></i> Bowling Config
+                        </div>
+                        <div id="controls-panel" class="card-content">
+                            <!-- Injected Controls (Same IDs for compatibility) -->
+                            <div class="control-row">
+                                <label>Speed</label>
+                                <select id="speed-control">
+                                    <option value="slow">Slow (80k)</option>
+                                    <option value="medium" selected>Medium (110k)</option>
+                                    <option value="fast">Fast (140k)</option>
+                                    <option value="express">Express (150k+)</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label>Line</label>
+                                <select id="line-control">
+                                    <option value="outside-off">Outside Off</option>
+                                    <option value="off">Off Stump</option>
+                                    <option value="middle" selected>Middle</option>
+                                    <option value="leg">Leg Stump</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label>Length</label>
+                                <select id="length-control">
+                                    <option value="short">Short</option>
+                                    <option value="good" selected>Good</option>
+                                    <option value="full">Full</option>
+                                    <option value="yorker">Yorker</option>
+                                </select>
+                            </div>
+                            <!-- Swing -->
+                            <div class="control-row split">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="swing-enabled" checked /> Enable Swing
+                                </label>
+                                <select id="swing-type">
+                                    <option value="outswing" selected>Outswing</option>
+                                    <option value="inswing">Inswing</option>
+                                    <option value="random">Random</option>
+                                </select>
+                            </div>
+                            <div class="control-row split">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="auto-bowl" /> Auto Bowl
+                                </label>
+                                <button id="random-btn" title="Random ball">🎲 Random</button>
+                                <button id="bowl-btn" class="primary-sm" style="display:none">Bowl</button>
+                                <!-- Hidden in menu -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Guides Card -->
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <i data-lucide="eye"></i> Visual Guides
+                        </div>
+                        <div id="visual-guides-panel" class="card-content grid-2">
+                            <label class="guide-checkbox">
+                                <input type="checkbox" id="show-shadow" checked> <span>Shadows</span>
+                            </label>
+                            <label class="guide-checkbox">
+                                <input type="checkbox" id="show-zone" checked> <span>Zones</span>
+                            </label>
+                            <label class="guide-checkbox">
+                                <input type="checkbox" id="show-grip" checked> <span>Grip</span>
+                            </label>
+                            <label class="guide-checkbox">
+                                <input type="checkbox" id="show-trail" checked> <span>Trails</span>
+                            </label>
+                            <button id="toggle-lights" class="light-btn">
+                                <i data-lucide="lightbulb"></i> Lights: OFF
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -262,99 +354,7 @@
             </style>
         </div>
 
-        <!-- Bowling Controls -->
-        <div id="controls-panel">
-            <div class="control-group">
-                <label>Speed</label>
-                <select id="speed-control">
-                    <option value="slow">Slow (80 km/h)</option>
-                    <option value="medium" selected>Medium (110 km/h)</option>
-                    <option value="fast">Fast (140 km/h)</option>
-                    <option value="express">Express (150+ km/h)</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Line</label>
-                <select id="line-control">
-                    <option value="outside-off">Outside Off</option>
-                    <option value="off">Off Stump</option>
-                    <option value="middle" selected>Middle</option>
-                    <option value="leg">Leg Stump</option>
-                    <option value="outside-leg">Outside Leg</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Length</label>
-                <select id="length-control">
-                    <option value="short">Short</option>
-                    <option value="short-of-good">Short of Good</option>
-                    <option value="good" selected>Good Length</option>
-                    <option value="full">Full</option>
-                    <option value="yorker">Yorker</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="auto-bowl" />
-                    Auto Bowl
-                </label>
-            </div>
-
-            <!-- NEW: Swing Controls -->
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="swing-enabled" checked />
-                    Enable Swing
-                </label>
-            </div>
-
-            <div class="control-group" id="swing-controls">
-                <label>Swing Type</label>
-                <select id="swing-type">
-                    <option value="none">No Swing</option>
-                    <option value="inswing">Inswing ↙️</option>
-                    <option value="outswing" selected>Outswing ↗️</option>
-                    <option value="random">Random 🎲</option>
-                </select>
-            </div>
-
-            <button id="random-btn" class="control-btn" title="Random delivery">
-                🎲
-            </button>
-
-            <button id="bowl-btn" class="control-btn primary">
-                🏏 Bowl
-            </button>
-        </div>
-
-        <!-- Visual Guides Panel -->
-        <div id="visual-guides-panel">
-            <div class="guide-title">Visual Guides</div>
-            <label class="guide-checkbox">
-                <input type="checkbox" id="show-shadow" checked>
-                <span>Ground Shadow</span>
-            </label>
-            <label class="guide-checkbox">
-                <input type="checkbox" id="show-zone" checked>
-                <span>Collision Zone</span>
-            </label>
-            <label class="guide-checkbox">
-                <input type="checkbox" id="show-grip" checked>
-                <span>Grip Indicator</span>
-            </label>
-            <label class="guide-checkbox">
-                <input type="checkbox" id="show-trail" checked>
-                <span>Swing Trail</span>
-            </label>
-
-            <!-- Stadium Lights Toggle -->
-            <button id="toggle-lights" class="control-btn" style="margin-top: 10px; width: 100%;">
-                💡 Lights: OFF
-            </button>
-        </div>
+        <!-- Controls Moved to Main Menu -->
 
         <!-- Score Display -->
         <div id="score-display">

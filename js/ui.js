@@ -10,7 +10,6 @@ export class UI {
         // Callbacks
         this.onBowl = null;
         this.onRandom = null;
-        this.onStartGame = null;
 
         // Ball overlay element
         this.ballOverlay = null;
@@ -21,6 +20,11 @@ export class UI {
      * Initialize UI elements
      */
     init() {
+        // Initialize Icons
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+
         // Cache DOM elements
         this.elements = {
             loadingScreen: document.getElementById('loading-screen'),
