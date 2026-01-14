@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/scoreboard.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/menu.css">
+    <link rel="stylesheet" href="css/hud.css">
 
     <!-- Import Map for ES Modules -->
     <script type="importmap">
@@ -31,6 +32,15 @@
 
 <body>
     <div id="app">
+        <!-- Splash Screen -->
+        <div id="splash-screen">
+            <div class="splash-content">
+                <div class="splash-logo">🏏</div>
+                <h1>CRICKET <span class="highlight">AR</span></h1>
+                <p>IMMERSIVE BATTING EXPERIENCE</p>
+            </div>
+        </div>
+
         <!-- Loading Screen -->
         <div id="loading-screen">
             <div class="loader">
@@ -51,6 +61,23 @@
                     <div class="brand">
                         <h1>CRICKET <span class="highlight">AR</span></h1>
                         <p>IMMERSIVE BATTING SIMULATOR</p>
+                    </div>
+
+                    <div class="menu-profile">
+                        <!-- Resume Button (Hidden by default, shown if game active) -->
+                        <button id="resume-match-btn" class="resume-btn hidden" title="Resume Match">
+                            <i data-lucide="x"></i>
+                        </button>
+
+                        <div class="profile-input-group">
+                            <label>Player Name</label>
+                            <input type="text" id="player-name-input" value="Mr. Sano" maxlength="15"
+                                placeholder="Name">
+                        </div>
+                        <div class="profile-input-group">
+                            <label>Team (4 Char)</label>
+                            <input type="text" id="team-abbr-input" value="PLR" maxlength="4" placeholder="PLR">
+                        </div>
                     </div>
 
                     <button id="start-match-btn" class="play-btn">
@@ -100,20 +127,28 @@
                                 </select>
                             </div>
                             <!-- Swing -->
-                            <div class="control-row split">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="swing-enabled-menu" checked /> Enable Swing
-                                </label>
-                                <select id="swing-type-menu">
+                            <div class="control-row split-toggle">
+                                <div class="toggle-group">
+                                    <label class="toggle-text">Enable Swing</label>
+                                    <label class="switch small">
+                                        <input type="checkbox" id="swing-enabled-menu" checked />
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <select id="swing-type-menu" class="menu-select">
                                     <option value="outswing" selected>Outswing</option>
                                     <option value="inswing">Inswing</option>
                                     <option value="random">Random</option>
                                 </select>
                             </div>
-                            <div class="control-row split">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="auto-bowl-menu" /> Auto Bowl
-                                </label>
+                            <div class="control-row">
+                                <div class="toggle-group">
+                                    <label class="toggle-text">Auto Bowl</label>
+                                    <label class="switch small">
+                                        <input type="checkbox" id="auto-bowl-menu" />
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -181,46 +216,20 @@
                 </div>
             </div>
 
-            <!-- TV Broadcast Scoreboard Overlay -->
-            <div id="tv-scoreboard">
-                <div class="score-card-glass">
-                    <div class="score-main-row">
-                        <div class="team-badge">
-                            <span class="team-name">PLR</span>
-                        </div>
+            <!-- TV Broadcast Scoreboard Overlay (Integrated into HUD) -->
 
-                        <div class="main-stats">
-                            <div class="runs-wickets-container">
-                                <span id="tv-runs" class="tv-runs">0</span><span class="divider">/</span><span
-                                    id="tv-wickets" class="tv-wickets">0</span>
-                            </div>
-                        </div>
 
-                        <div class="secondary-stats">
-                            <div class="stat-box">
-                                <span class="label">OVERS</span>
-                                <span id="tv-overs" class="value">0.0</span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="label">CRR</span>
-                                <span id="tv-crr" class="value">0.0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="score-timeline-row">
-                        <div class="timeline-label">THIS OVER</div>
-                        <div id="tv-timeline" class="timeline-balls">
-                            <!-- Balls injected via JS -->
-                        </div>
-                    </div>
-                </div>
-            </div>
             <!-- Layout Control (Top Center) -->
             <div id="layout-control">
-                <button class="layout-btn" data-mode="cam" title="Larger Camera">📷 60:40</button>
-                <button class="layout-btn active" data-mode="equal" title="Equal Split">50:50</button>
-                <button class="layout-btn" data-mode="game" title="Larger Game">40:60 🏏</button>
+                <button class="layout-btn" data-mode="cam" title="Larger Camera">
+                    <i data-lucide="camera"></i> 3:2
+                </button>
+                <button class="layout-btn active" data-mode="equal" title="Equal Split">
+                    <i data-lucide="columns"></i> 1:1
+                </button>
+                <button class="layout-btn" data-mode="game" title="Larger Game">
+                    <i data-lucide="gamepad-2"></i> 2:3
+                </button>
             </div>
 
             <style>
@@ -353,99 +362,140 @@
 
         <!-- Controls Moved to Main Menu -->
 
-        <!-- Bowling Controls (In-Game HUD) -->
-        <div id="controls-panel">
-            <div class="control-group">
-                <label>Speed</label>
-                <select id="speed-control">
-                    <option value="slow">Slow (80 km/h)</option>
-                    <option value="medium" selected>Medium (110 km/h)</option>
-                    <option value="fast">Fast (140 km/h)</option>
-                    <option value="express">Express (150+ km/h)</option>
-                </select>
+        <!-- === NEW HUD DASHBOARD === -->
+        <div id="game-hud">
+            <!-- Minimizer Handle -->
+            <div id="hud-toggle-btn">
+                <i data-lucide="chevron-down"></i>
             </div>
 
-            <div class="control-group">
-                <label>Line</label>
-                <select id="line-control">
-                    <option value="outside-off">Outside Off</option>
-                    <option value="off">Off Stump</option>
+            <!-- Left Zone: Settings & Auto -->
+            <div class="hud-left">
+                <button id="hud-home-btn" class="hud-btn danger" title="Exit to Menu">
+                    <i data-lucide="home"></i>
+                </button>
+
+                <div class="hud-toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" id="auto-bowl">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="toggle-label">Auto Bowl</span>
+                </div>
+
+                <button id="hud-random-btn" class="hud-btn" title="Random Ball">
+                    <i data-lucide="shuffle"></i>
+                </button>
+
+                <!-- Visual Settings Trigger -->
+                <button id="hud-visual-btn" class="hud-btn" title="Visual Guides">
+                    <i data-lucide="eye"></i>
+                </button>
+
+                <!-- Popover Menu -->
+                <div id="visual-settings-popover">
+                    <div class="settings-row">
+                        <span>Shadows</span>
+                        <label class="switch"><input type="checkbox" id="show-shadow" checked><span
+                                class="slider"></span></label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Zones</span>
+                        <label class="switch"><input type="checkbox" id="show-zone" checked><span
+                                class="slider"></span></label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Grip</span>
+                        <label class="switch"><input type="checkbox" id="show-grip" checked><span
+                                class="slider"></span></label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Trails</span>
+                        <label class="switch"><input type="checkbox" id="show-trail" checked><span
+                                class="slider"></span></label>
+                    </div>
+                    <div class="settings-row">
+                        <span>Lights</span>
+                        <button id="toggle-lights" class="bowling-select"
+                            style="width: auto; padding: 2px 8px;">OFF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Zone: Scoreboard (Moved to Top) -->
+            <div class="hud-center">
+                <div class="score-card-glass">
+                    <div class="score-main-row">
+                        <div class="team-badge">
+                            <span id="tv-team-name" class="team-name">PLR</span>
+                        </div>
+
+                        <div class="main-stats">
+                            <div class="runs-wickets-container">
+                                <span id="tv-runs" class="tv-runs">0</span><span class="divider">/</span><span
+                                    id="tv-wickets" class="tv-wickets">0</span>
+                            </div>
+                        </div>
+
+                        <div class="secondary-stats">
+                            <div class="stat-box">
+                                <span class="label">OVERS</span>
+                                <span id="tv-overs" class="value">0.0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="label">CRR</span>
+                                <span id="tv-crr" class="value">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-timeline-row">
+                        <div class="timeline-label">THIS OVER</div>
+                        <div id="tv-timeline" class="timeline-balls">
+                            <!-- Balls injected via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Zone: Manual Bowling -->
+            <div class="hud-right">
+                <select id="speed-control" class="bowling-select">
+                    <option value="slow">Slow</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="fast">Fast</option>
+                    <option value="express">Express</option>
+                </select>
+
+                <select id="line-control" class="bowling-select">
+                    <option value="outside-off">Out Off</option>
+                    <option value="off">Off</option>
                     <option value="middle" selected>Middle</option>
-                    <option value="leg">Leg Stump</option>
-                    <option value="outside-leg">Outside Leg</option>
+                    <option value="leg">Leg</option>
                 </select>
-            </div>
 
-            <div class="control-group">
-                <label>Length</label>
-                <select id="length-control">
+                <select id="length-control" class="bowling-select">
                     <option value="short">Short</option>
-                    <option value="short-of-good">Short of Good</option>
-                    <option value="good" selected>Good Length</option>
+                    <option value="good" selected>Good</option>
                     <option value="full">Full</option>
                     <option value="yorker">Yorker</option>
                 </select>
-            </div>
 
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="auto-bowl" />
-                    Auto Bowl
-                </label>
+                <button id="bowl-btn" class="bowl-action-btn">
+                    BOWL
+                </button>
             </div>
-
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="swing-enabled" checked />
-                    Swing
-                </label>
-            </div>
-
-            <div class="control-group" id="swing-controls">
-                <select id="swing-type">
-                    <option value="none">No Swing</option>
-                    <option value="inswing">Inswing</option>
-                    <option value="outswing" selected>Outswing</option>
-                    <option value="random">Random</option>
-                </select>
-            </div>
-
-            <button id="random-btn" class="control-btn" title="Random delivery">🎲</button>
-            <button id="bowl-btn" class="control-btn primary">🏏 Bowl</button>
         </div>
 
-        <!-- Visual Guides Panel (In-Game HUD) -->
-        <div id="visual-guides-panel">
-            <div class="guide-title">Visual Guides</div>
-            <label class="guide-checkbox"><input type="checkbox" id="show-shadow" checked> <span>Shadow</span></label>
-            <label class="guide-checkbox"><input type="checkbox" id="show-zone" checked> <span>Zone</span></label>
-            <label class="guide-checkbox"><input type="checkbox" id="show-grip" checked> <span>Grip</span></label>
-            <label class="guide-checkbox"><input type="checkbox" id="show-trail" checked> <span>Trail</span></label>
-            <button id="toggle-lights" class="control-btn" style="margin-top: 10px; width: 100%;">💡 Lights</button>
-        </div>
-
-        <!-- Score Display -->
-        <div id="score-display">
-            <div class="score-item">
-                <span class="label">Runs</span>
-                <span id="runs" class="value">0</span>
-            </div>
-            <div class="score-item">
-                <span class="label">Balls</span>
-                <span id="balls" class="value">0</span>
-            </div>
-            <div class="score-item">
-                <span class="label">Wickets</span>
-                <span id="wickets" class="value">0</span>
-            </div>
-            <div class="score-item">
-                <span class="label">Last Shot</span>
-                <span id="last-shot" class="value">-</span>
-            </div>
-            <div class="score-item">
-                <span class="label">Speed</span>
-                <span id="swing-speed" class="value">0</span>
-            </div>
+        <!-- Hidden inputs for swing (preserved logic but hidden from UI for simplicity, or add to popover if needed) -->
+        <div style="display:none;">
+            <input type="checkbox" id="swing-enabled" checked />
+            <select id="swing-type">
+                <option value="outswing">Out</option>
+                <option value="inswing">In</option>
+                <option value="random">Rand</option>
+                <option value="none">None</option>
+            </select>
         </div>
     </div>
 

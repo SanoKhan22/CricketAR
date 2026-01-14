@@ -28,12 +28,16 @@ export class UI {
         // Cache DOM elements
         this.elements = {
             loadingScreen: document.getElementById('loading-screen'),
+            splashScreen: document.getElementById('splash-screen'),
             loadingStatus: document.querySelector('.loading-status'),
             gameContainer: document.getElementById('game-container'),
 
             // Main Menu
             mainMenu: document.getElementById('main-menu'),
             startMatchBtn: document.getElementById('start-match-btn'),
+            playerNameInput: document.getElementById('player-name-input'),
+            teamAbbrInput: document.getElementById('team-abbr-input'),
+            tvTeamName: document.getElementById('tv-team-name'),
 
             // Controls
             speedControl: document.getElementById('speed-control'),
@@ -41,14 +45,24 @@ export class UI {
             lengthControl: document.getElementById('length-control'),
             autoBowl: document.getElementById('auto-bowl'),
             bowlBtn: document.getElementById('bowl-btn'),
-            randomBtn: document.getElementById('random-btn'),
+            randomBtn: document.getElementById('hud-random-btn'), // Updated ID
 
-            // Score
-            runs: document.getElementById('runs'),
-            balls: document.getElementById('balls'),
-            wickets: document.getElementById('wickets'),
-            lastShot: document.getElementById('last-shot'),
-            swingSpeed: document.getElementById('swing-speed'),
+            // Score (HUD)
+            runs: document.getElementById('hud-runs'),
+            wickets: document.getElementById('hud-wickets'),
+            overs: document.getElementById('hud-overs'),
+
+            // HUD specific
+            gameHud: document.getElementById('game-hud'),
+            hudToggleBtn: document.getElementById('hud-toggle-btn'),
+            hudVisualBtn: document.getElementById('hud-visual-btn'),
+            visualPopover: document.getElementById('visual-settings-popover'),
+            hudHomeBtn: document.getElementById('hud-home-btn'),
+
+            // New Elements
+            resumeBtn: document.getElementById('resume-match-btn'),
+            showCard: document.getElementById('show-card'),
+            tvScoreboard: document.getElementById('tv-scoreboard'), // Ensure mapped for drag/toggle
 
             // Status
             handStatus: document.getElementById('hand-status'),
@@ -81,6 +95,7 @@ export class UI {
 
         // Callbacks
         this.onRestart = null;
+        this.isGameActive = false; // Track game state
 
         // Set up event listeners
         this.setupEventListeners();
@@ -91,8 +106,73 @@ export class UI {
         // Setup Layout Control
         this.setupLayoutControl();
 
+        // Setup HUD Controls
+        this.setupHudControls();
+
+        // Make TV Scoreboard Draggable
+        if (this.elements.tvScoreboard) {
+            this.makeDraggable(this.elements.tvScoreboard);
+        }
+
+        // Initial State
+
+        // Initial State
+        this.showSplash();
+        this.hideMenu(); // Ensure menu is hidden initially
+        // Ensure HUD is hidden initially (since hideMenu now shows it)
+        if (this.elements.gameHud) this.elements.gameHud.classList.add('hidden');
+
         console.log('UI initialized');
         return this;
+    }
+
+    // --- Splash Screen & Menu Flow ---
+
+    showSplash() {
+        if (this.elements.splashScreen) {
+            this.elements.splashScreen.classList.remove('hidden');
+        }
+    }
+
+    hideSplash() {
+        if (this.elements.splashScreen) {
+            this.elements.splashScreen.classList.add('hidden');
+        }
+    }
+
+    showMainMenu() {
+        if (this.elements.mainMenu) {
+            this.elements.mainMenu.classList.remove('hidden');
+            this.elements.mainMenu.style.visibility = 'visible'; // Force visibility
+            this.elements.mainMenu.style.opacity = '1';
+
+            // Show/Hide Resume Button based on state
+            if (this.elements.resumeBtn) {
+                if (this.isGameActive) {
+                    this.elements.resumeBtn.classList.remove('hidden');
+                } else {
+                    this.elements.resumeBtn.classList.add('hidden');
+                }
+            }
+        }
+        // Hide HUD when in Menu
+        if (this.elements.gameHud) {
+            this.elements.gameHud.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Handle the full startup sequence: Splash -> Wait -> Menu
+     */
+    handleSplashSequence() {
+        // 1. Hide Loading (assets loaded)
+        this.hideLoading();
+
+        // 2. Keep Splash for a moment (brand moment)
+        setTimeout(() => {
+            this.hideSplash();
+            this.showMainMenu();
+        }, 2500); // 2.5s Splash duration
     }
 
     setupLayoutControl() {
@@ -133,7 +213,26 @@ export class UI {
     setupEventListeners() {
         if (this.elements.startMatchBtn) {
             this.elements.startMatchBtn.addEventListener('click', () => {
+                this.isGameActive = true;
                 if (this.onStartGame) this.onStartGame();
+            });
+        }
+
+        // Resume Button Logic
+        if (this.elements.resumeBtn) {
+            this.elements.resumeBtn.addEventListener('click', () => {
+                this.hideMenu();
+            });
+        }
+
+        // Live Team Abbreviation Update
+        if (this.elements.teamAbbrInput) {
+            this.elements.teamAbbrInput.addEventListener('input', (e) => {
+                const val = e.target.value.toUpperCase().slice(0, 4);
+                e.target.value = val;
+                if (this.elements.tvTeamName) {
+                    this.elements.tvTeamName.textContent = val || 'PLR';
+                }
             });
         }
 
@@ -236,6 +335,12 @@ export class UI {
     hideMenu() {
         if (this.elements.mainMenu) {
             this.elements.mainMenu.classList.add('hidden');
+            this.elements.mainMenu.style.visibility = '';
+            this.elements.mainMenu.style.opacity = '';
+        }
+        // Show HUD when starting game
+        if (this.elements.gameHud) {
+            this.elements.gameHud.classList.remove('hidden');
         }
     }
 
@@ -263,6 +368,7 @@ export class UI {
      * Enable/disable bowl button
      */
     setBowlEnabled(enabled) {
+        console.log('UI: setBowlEnabled', enabled); // Debugging
         this.elements.bowlBtn.disabled = !enabled;
     }
 
@@ -292,15 +398,18 @@ export class UI {
      * Update Scoreboard (TV Style)
      */
     updateScore(runs, balls, wickets, history = [], crr = 0.0) {
-        // Safe check for elements
-        if (this.elements.tvRuns) this.elements.tvRuns.textContent = runs;
-        if (this.elements.tvWickets) this.elements.tvWickets.textContent = wickets;
+        // Update HUD (Center)
+        if (this.elements.runs) this.elements.runs.textContent = runs;
+        if (this.elements.wickets) this.elements.wickets.textContent = wickets;
 
         // Format Overs (e.g., 3.2)
         const overs = Math.floor(balls / 6) + '.' + (balls % 6);
-        if (this.elements.tvOvers) this.elements.tvOvers.textContent = overs;
+        if (this.elements.overs) this.elements.overs.textContent = overs;
 
-        // Format CRR
+        // Optionally update TV scoreboard if needed (sync)
+        if (this.elements.tvRuns) this.elements.tvRuns.textContent = runs;
+        if (this.elements.tvWickets) this.elements.tvWickets.textContent = wickets;
+        if (this.elements.tvOvers) this.elements.tvOvers.textContent = overs;
         if (this.elements.tvCRR) this.elements.tvCRR.textContent = crr.toFixed(1);
 
         // Update Timeline (Show only CURRENT over balls)
@@ -363,13 +472,9 @@ export class UI {
     /**
      * Show last shot
      */
-    showLastShot(shotName, runs) {
-        let display = shotName;
-        if (runs > 0) {
-            display += ` - ${runs}`;
-            if (runs === 4) display += ' FOUR!';
-            if (runs === 6) display += ' SIX!';
-        }
+    showLastShot(text) {
+        if (!this.elements.lastShot) return;
+        const display = text || '-';
         this.elements.lastShot.textContent = display;
     }
 
@@ -525,5 +630,127 @@ export class UI {
         if (this.elements.gameOverScreen) {
             this.elements.gameOverScreen.classList.remove('visible');
         }
+    }
+
+    /**
+     * Setup New HUD Interactions
+     */
+    setupHudControls() {
+        // Toggle HUD Minimize/Maximize
+        if (this.elements.hudToggleBtn && this.elements.gameHud) {
+            this.elements.hudToggleBtn.addEventListener('click', () => {
+                const hud = this.elements.gameHud;
+                hud.classList.toggle('minimized');
+
+                // Rotate chevron logic could go here
+                const icon = this.elements.hudToggleBtn.querySelector('i');
+                if (icon) {
+                    // Simple check if class is present to flip icon direction (optional visual polish)
+                    // If minimized, chevron-up. If not, chevron-down.
+                    // Handled by lucide data update? Simpler is transform in CSS.
+                    this.elements.hudToggleBtn.style.transform = hud.classList.contains('minimized')
+                        ? 'translate(-50%, -10px) rotate(180deg)'
+                        : 'translate(-50%) rotate(0deg)';
+                }
+            });
+        }
+
+        // Toggle Visual Settings Popover
+        if (this.elements.hudVisualBtn && this.elements.visualPopover) {
+            this.elements.hudVisualBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent closing immediately
+                this.elements.visualPopover.classList.toggle('visible');
+                this.elements.hudVisualBtn.classList.toggle('active');
+            });
+
+            // Close when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!this.elements.visualPopover.contains(e.target) && e.target !== this.elements.hudVisualBtn) {
+                    this.elements.visualPopover.classList.remove('visible');
+                    this.elements.hudVisualBtn.classList.remove('active');
+                }
+            });
+        }
+
+        // Home Button (Exit to Menu)
+        if (this.elements.hudHomeBtn) {
+            this.elements.hudHomeBtn.addEventListener('click', () => {
+                // Return to Menu (Resume available)
+                this.showMainMenu();
+                // Removed showSplash() to prevent infinite loading
+            });
+        }
+
+        // Show Card Toggle
+        if (this.elements.showCard && this.elements.tvScoreboard) {
+            this.elements.showCard.addEventListener('change', (e) => {
+                this.elements.tvScoreboard.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+
+        // Make TV Scoreboard Draggable
+        if (this.elements.tvScoreboard) {
+            this.makeDraggable(this.elements.tvScoreboard);
+        }
+    }
+
+    /**
+     * Make an element draggable
+     */
+    makeDraggable(element) {
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        const dragStart = (e) => {
+            if (e.target.closest('button') || e.target.closest('input')) return; // Ignore controls
+
+            if (e.type === "touchstart") {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+            if (element.contains(e.target)) {
+                isDragging = true;
+            }
+        };
+
+        const dragEnd = (e) => {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+        };
+
+        const drag = (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+                xOffset = currentX;
+                yOffset = currentY;
+                element.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+            }
+        };
+
+        element.addEventListener("mousedown", dragStart);
+        document.addEventListener("mouseup", dragEnd);
+        document.addEventListener("mousemove", drag);
+
+        element.addEventListener("touchstart", dragStart, { passive: false });
+        document.addEventListener("touchend", dragEnd);
+        document.addEventListener("touchmove", drag, { passive: false });
+
+        element.style.cursor = 'move';
     }
 }

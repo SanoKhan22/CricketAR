@@ -166,10 +166,8 @@ class CricketARGame {
                 this.bowling.setSwing(swingType);
             });
 
-            // Hide loading screen
-            setTimeout(() => {
-                this.ui.hideLoading();
-            }, 500);
+            // Hide loading and show Splash -> Menu sequence
+            this.ui.handleSplashSequence();
 
             // Start game loop
             this.start();
