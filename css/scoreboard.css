@@ -1,0 +1,174 @@
+/* TV Broadcast Scoreboard */
+#tv-scoreboard {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    font-family: 'Segoe UI', 'Roboto Condensed', sans-serif;
+    pointer-events: none;
+    user-select: none;
+}
+
+.score-card-glass {
+    background: rgba(10, 15, 30, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 4px solid #00d4aa;
+    /* Accent Color */
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    width: 380px;
+    transform: translateY(0);
+    transition: transform 0.3s ease;
+}
+
+/* Row 1: Main Stats */
+.score-main-row {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.team-badge {
+    background: linear-gradient(135deg, #0055ff, #002266);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 18px;
+    margin-right: 20px;
+    box-shadow: 0 4px 10px rgba(0, 85, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.main-stats {
+    flex-grow: 1;
+}
+
+.runs-wickets-container {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    letter-spacing: -1px;
+    display: flex;
+    align-items: baseline;
+}
+
+.tv-runs {
+    color: #ffffff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.tv-wickets {
+    font-size: 32px;
+    color: #aaa;
+    margin-left: 2px;
+}
+
+.divider {
+    font-size: 32px;
+    color: #555;
+    margin: 0 2px;
+}
+
+.secondary-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.stat-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stat-box .label {
+    font-size: 11px;
+    color: #888;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.stat-box .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #00d4aa;
+    /* Neon Cyan */
+    font-family: monospace;
+}
+
+/* Row 2: Timeline */
+.score-timeline-row {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.timeline-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.timeline-balls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ball-result {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ball-result.four {
+    background: #3b82f6;
+    /* Blue */
+    color: white;
+    border-color: #60a5fa;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+.ball-result.six {
+    background: #8b5cf6;
+    /* Purple */
+    color: white;
+    border-color: #a78bfa;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+.ball-result.wicket {
+    background: #ef4444;
+    /* Red */
+    color: white;
+    border-color: #f87171;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.ball-result.dot {
+    color: #666;
+    font-size: 16px;
+    line-height: 0;
+}

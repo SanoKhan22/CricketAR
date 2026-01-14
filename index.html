@@ -9,6 +9,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/scoreboard.css">
 
     <!-- Import Map for ES Modules -->
     <script type="importmap">
@@ -69,6 +70,42 @@
                         <button id="play-again-btn">
                             PLAY AGAIN ↻
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TV Broadcast Scoreboard Overlay -->
+            <div id="tv-scoreboard">
+                <div class="score-card-glass">
+                    <div class="score-main-row">
+                        <div class="team-badge">
+                            <span class="team-name">PLR</span>
+                        </div>
+
+                        <div class="main-stats">
+                            <div class="runs-wickets-container">
+                                <span id="tv-runs" class="tv-runs">0</span><span class="divider">/</span><span
+                                    id="tv-wickets" class="tv-wickets">0</span>
+                            </div>
+                        </div>
+
+                        <div class="secondary-stats">
+                            <div class="stat-box">
+                                <span class="label">OVERS</span>
+                                <span id="tv-overs" class="value">0.0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="label">CRR</span>
+                                <span id="tv-crr" class="value">0.0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="score-timeline-row">
+                        <div class="timeline-label">THIS OVER</div>
+                        <div id="tv-timeline" class="timeline-balls">
+                            <!-- Balls injected via JS -->
+                        </div>
                     </div>
                 </div>
             </div>

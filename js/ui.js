@@ -51,6 +51,13 @@ export class UI {
             // Next Ball Warning
             nextBallWarning: document.getElementById('next-ball-warning'),
 
+            // TV Scoreboard
+            tvRuns: document.getElementById('tv-runs'),
+            tvWickets: document.getElementById('tv-wickets'),
+            tvOvers: document.getElementById('tv-overs'),
+            tvCRR: document.getElementById('tv-crr'),
+            tvTimeline: document.getElementById('tv-timeline'),
+
             // Overlays
             cameraOverlay: document.getElementById('camera-overlay'),
             ballTrajectoryOverlay: document.getElementById('ball-trajectory-overlay'),
@@ -174,18 +181,51 @@ export class UI {
     }
 
     /**
-     * Update score display
+     * Update Scoreboard (TV Style)
      */
-    updateScore(runs, balls) {
-        this.elements.runs.textContent = runs;
-        this.elements.balls.textContent = balls;
+    updateScore(runs, balls, wickets, history = [], crr = 0.0) {
+        // Safe check for elements
+        if (this.elements.tvRuns) this.elements.tvRuns.textContent = runs;
+        if (this.elements.tvWickets) this.elements.tvWickets.textContent = wickets;
+
+        // Format Overs (e.g., 3.2)
+        const overs = Math.floor(balls / 6) + '.' + (balls % 6);
+        if (this.elements.tvOvers) this.elements.tvOvers.textContent = overs;
+
+        // Format CRR
+        if (this.elements.tvCRR) this.elements.tvCRR.textContent = crr.toFixed(1);
+
+        // Update Timeline
+        if (this.elements.tvTimeline) {
+            this.elements.tvTimeline.innerHTML = ''; // Clear current
+
+            // Show last 6 balls (or fewer)
+            const recentBalls = history.slice(-6);
+
+            recentBalls.forEach(ball => {
+                const span = document.createElement('span');
+                span.className = 'ball-result';
+
+                // Determine class based on result
+                if (ball === 4) span.classList.add('four');
+                else if (ball === 6) span.classList.add('six');
+                else if (ball === 'W') span.classList.add('wicket');
+                else if (ball === 0) {
+                    span.classList.add('dot');
+                    ball = '•'; // Use bullet for dot ball
+                }
+
+                span.textContent = ball;
+                this.elements.tvTimeline.appendChild(span);
+            });
+        }
     }
 
     /**
-     * Update wickets display
+     * Update Wickets (Deprecated - handled in updateScore now, but kept for compatibility)
      */
     updateWickets(wickets) {
-        this.elements.wickets.textContent = wickets;
+        // No-op or update if separate call needed
     }
 
     /**

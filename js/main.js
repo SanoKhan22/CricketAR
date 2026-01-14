@@ -40,7 +40,12 @@ class CricketARGame {
         // Score
         this.totalRuns = 0;
         this.totalBalls = 0;
+        this.totalRuns = 0;
+        this.totalBalls = 0;
         this.wickets = 0;
+
+        // TV Scoreboard History
+        this.ballHistory = []; // Stores runs (0,1,4,6) or 'W'
 
         // Camera dimensions
         this.cameraWidth = 0;
@@ -832,7 +837,14 @@ class CricketARGame {
 
         // Update score
         this.totalRuns += runs;
-        this.ui.updateScore(this.totalRuns, this.totalBalls);
+        this.totalBalls++;
+        this.ballHistory.push(runs);
+
+        // Calculate CRR
+        const overs = this.totalBalls / 6;
+        const crr = overs > 0 ? (this.totalRuns / overs) : 0;
+
+        this.ui.updateScore(this.totalRuns, this.totalBalls, this.wickets, this.ballHistory, crr);
 
         // Update stadium scoreboard
         this.renderer.stadiumEnvironment.updateScore(this.totalRuns, this.totalBalls);
@@ -869,7 +881,14 @@ class CricketARGame {
 
         // Increment wickets
         this.wickets++;
-        this.ui.updateWickets(this.wickets);
+        this.totalBalls++;
+        this.ballHistory.push('W');
+
+        // Calculate CRR
+        const overs = this.totalBalls / 6;
+        const crr = overs > 0 ? (this.totalRuns / overs) : 0;
+
+        this.ui.updateScore(this.totalRuns, this.totalBalls, this.wickets, this.ballHistory, crr);
 
         // Trigger wicket destruction physics
         this.physics.destroyWicket(dismissal);
@@ -900,9 +919,10 @@ class CricketARGame {
         this.totalRuns = 0;
         this.totalBalls = 0;
         this.wickets = 0;
+        this.ballHistory = [];
 
-        this.ui.updateScore(0, 0);
-        this.ui.updateWickets(0);
+        this.ui.updateScore(0, 0, 0, [], 0);
+        // this.ui.updateWickets(0); // Deprecated
         this.ui.showShotResult('');
 
         this.resetForNextDelivery();
@@ -957,7 +977,14 @@ class CricketARGame {
 
         // Update score
         this.totalRuns += runs;
-        this.ui.updateScore(this.totalRuns, this.totalBalls);
+        this.totalBalls++;
+        this.ballHistory.push(runs);
+
+        // Calculate CRR
+        const overs = this.totalBalls / 6;
+        const crr = overs > 0 ? (this.totalRuns / overs) : 0;
+
+        this.ui.updateScore(this.totalRuns, this.totalBalls, this.wickets, this.ballHistory, crr);
         this.ui.showLastShot(shotName, runs);
 
         // Show result

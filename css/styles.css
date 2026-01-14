@@ -389,6 +389,7 @@ body {
 
 /* Score Display */
 #score-display {
+    display: none !important;
     position: fixed;
     top: 15px;
     right: 15px;
