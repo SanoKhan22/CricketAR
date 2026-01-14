@@ -196,15 +196,6 @@ export class UI {
         bindSync('show-grip', 'show-grip-menu', 'change', null);
         bindSync('show-trail', 'show-trail-menu', 'change', null);
 
-        // Toggle Lights
-        bindSync('toggle-lights', 'toggle-lights-menu', 'click', (e) => {
-            // Logic handled in main.js usually? No, it was inline?
-            // Need to check where toggle lights logic is.
-            // Usually it's bound in main.js. But ui.js handles it?
-            // If main.js binds it separately, we need to be careful.
-            // Currently main.js uses 'toggle-lights' ID.
-            // We need to trigger the logic.
-        });
 
         if (this.elements.playAgainBtn) {
             this.elements.playAgainBtn.addEventListener('click', () => {

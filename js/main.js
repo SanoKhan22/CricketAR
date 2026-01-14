@@ -767,7 +767,7 @@ class CricketARGame {
             // --- STANDARD GAME LOOP ---
 
             // Physics
-            this.physics.step(deltaTime);
+            this.physics.update(deltaTime);
 
             // Hand Tracking & Bat Movement
             if (this.handTracking.isDetected) {
@@ -813,6 +813,14 @@ class CricketARGame {
             // Camera Animation
             if (this.renderer.controls) {
                 this.renderer.controls.update();
+            }
+
+            // Sync wicket visuals during dismissal animation
+            if (this.state === 'dismissed') {
+                this.renderer.updateWicketPhysics(
+                    this.physics.stumpBodies,
+                    this.physics.bailBodies
+                );
             }
 
             // Stats
@@ -880,106 +888,7 @@ class CricketARGame {
         }
     }
 
-    /**
-     * Main game loop
-     */
-    gameLoop(currentTime) {
-        if (!this.isRunning) return;
 
-        // Calculate delta time
-        const deltaTime = (currentTime - this.lastTime) / 1000;
-        this.lastTime = currentTime;
-
-        // Menu State: Orbit Camera
-        if (this.state === 'menu') {
-            this.menuTime += deltaTime;
-            if (this.renderer.orbitCamera) {
-                this.renderer.orbitCamera(this.menuTime);
-            }
-            this.renderer.render();
-            requestAnimationFrame((t) => this.gameLoop(t));
-            return; // Skip other updates
-        }
-
-        // Update FPS counter
-        this.frameCount++;
-        if (currentTime - this.lastFpsUpdate > 1000) {
-            this.fps = this.frameCount;
-            this.frameCount = 0;
-            this.lastFpsUpdate = currentTime;
-        }
-
-        // Update physics (includes dismissed state for wicket animation)
-        if (this.state === 'bowling' || this.state === 'batting' || this.state === 'dismissed') {
-            this.physics.update(deltaTime);
-
-            // === CHECK FOR WICKET COLLISION (BOWLED) ===
-            // Check immediately after physics update to prevent race conditions with scoring
-            if (this.state === 'batting') {
-                const wicketHit = this.physics.checkWicketCollision();
-                if (wicketHit) {
-                    this.handleDismissal(wicketHit);
-                    // State is now 'dismissed', so subsequent visual updates won't trigger scoring
-                }
-            }
-
-            // Only update ball visuals when ball is in play
-            if (this.state !== 'dismissed') {
-                this.updateBallVisuals();
-            }
-        }
-
-        // Hand Tracking & Bat Movement
-        if (this.handTracking.isDetected) {
-            const handPos = this.handTracking.getPalmPosition();
-            this.bat.update(handPos, deltaTime);
-            this.ui.updateBatOverlay(handPos, this.cameraWidth, this.cameraHeight);
-            this.ui.setHandStatus(true);
-        } else {
-            this.ui.setHandStatus(false);
-        }
-
-        // Bowling Logic
-        if (this.state === 'bowling') {
-            this.bowling.update(deltaTime);
-        }
-
-        // Interaction Logic (Batting/Bowled)
-        if (this.state === 'bowling' || this.state === 'batting') {
-            // 1. Bat Collision
-            if (!this.hasHitThisDelivery) {
-                const ballPos = this.physics.getBallPosition();
-                const collision = this.bat.checkCollision(ballPos);
-                if (collision) {
-                    this.handleHit(collision);
-                }
-            }
-        }
-
-        // Check for delivery completion
-        if (this.state === 'batting') {
-            this.checkDeliveryComplete();
-        }
-
-        // Update camera animations (smooth transitions)
-        if (this.renderer.controls) {
-            this.renderer.controls.update();
-        }
-
-        // Sync wicket visuals with physics (during dismissal)
-        if (this.state === 'dismissed') {
-            this.renderer.updateWicketPhysics(
-                this.physics.stumpBodies,
-                this.physics.bailBodies
-            );
-        }
-
-        // Render 3D scene
-        this.renderer.render();
-
-        // Request next frame
-        requestAnimationFrame((t) => this.gameLoop(t));
-    }
 
     /**
      * Update ball visuals in both views
