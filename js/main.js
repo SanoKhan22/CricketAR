@@ -33,7 +33,8 @@ class CricketARGame {
         this.timingSystem = new TimingSystem();
 
         // Game state
-        this.state = 'idle'; // idle, bowling, batting, result
+        this.state = 'menu'; // menu, idle, bowling, batting, result
+        this.menuTime = 0; // For orbit animation
         this.isRunning = false;
         this.lastTime = 0;
 
@@ -141,6 +142,9 @@ class CricketARGame {
                 () => this.randomBowl(),
                 () => this.restartGame()
             );
+
+            // Bind Start Game
+            this.ui.onStartGame = () => this.startGame();
 
             // === SWING UI CONTROLS ===
             document.getElementById('swing-enabled').addEventListener('change', (e) => {
@@ -722,6 +726,16 @@ class CricketARGame {
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
 
+        // Menu State: Orbit Camera
+        if (this.state === 'menu') {
+            this.menuTime += deltaTime;
+            if (this.renderer.orbitCamera) {
+                this.renderer.orbitCamera(this.menuTime);
+            }
+            this.renderer.render();
+            return; // Skip other updates
+        }
+
         // Update FPS counter
         this.frameCount++;
         if (currentTime - this.lastFpsUpdate > 1000) {
@@ -1010,6 +1024,24 @@ class CricketARGame {
         setTimeout(() => {
             this.resetForNextDelivery();
         }, 5000);
+    }
+
+    /**
+     * Start Game (Transition from Menu)
+     */
+    startGame() {
+        console.log('🏏 Starting Match...');
+        this.state = 'idle';
+        this.ui.hideMenu();
+
+        // Reset camera to player view
+        this.renderer.resetCamera();
+
+        // Ensure overlay canvas is sized
+        if (this.renderer.onResize) this.renderer.onResize();
+
+        // Start waiting for bowl
+        this.resetForNextDelivery();
     }
 
     /**

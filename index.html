@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/scoreboard.css">
     <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/menu.css">
 
     <!-- Import Map for ES Modules -->
     <script type="importmap">
@@ -36,6 +37,22 @@
                 <div class="cricket-ball"></div>
                 <p>Loading Cricket AR...</p>
                 <p class="loading-status">Initializing camera...</p>
+            </div>
+        </div>
+
+        <!-- Main Menu (Cinematic Overlay) -->
+        <div id="main-menu">
+            <div class="menu-content">
+                <h1 class="game-title">CRICKET <span class="highlight">AR</span></h1>
+                <p class="game-subtitle">Immersive Hand-Tracking Cricket</p>
+
+                <button id="start-match-btn" class="menu-btn primary">
+                    <span class="btn-icon">🏏</span> PLAY MATCH
+                </button>
+
+                <div class="menu-footer">
+                    <p>Powered by <span class="tech">MediaPipe</span> & <span class="tech">Three.js</span></p>
+                </div>
             </div>
         </div>
 

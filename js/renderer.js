@@ -536,11 +536,23 @@ export class Renderer {
                 // Show inner 30-yard circle
                 this.targetCameraPos = { x: 0, y: 35, z: 40 };
                 break;
-            case 'full':
-                // Full ground view for boundaries
                 this.targetCameraPos = { x: 0, y: 80, z: 60 };
                 break;
         }
+    }
+
+    /**
+     * Orbit camera for main menu (Cinematic)
+     */
+    orbitCamera(time) {
+        const radius = 70; // High viewing angle
+        const speed = 0.2; // Slow rotation
+
+        const x = Math.sin(time * speed) * radius;
+        const z = Math.cos(time * speed) * radius;
+
+        this.camera.position.set(x, 40, z);
+        this.camera.lookAt(0, 0, 0); // Always look at pitch center
     }
 
     /**

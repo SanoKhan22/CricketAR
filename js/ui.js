@@ -10,6 +10,7 @@ export class UI {
         // Callbacks
         this.onBowl = null;
         this.onRandom = null;
+        this.onStartGame = null;
 
         // Ball overlay element
         this.ballOverlay = null;
@@ -25,6 +26,10 @@ export class UI {
             loadingScreen: document.getElementById('loading-screen'),
             loadingStatus: document.querySelector('.loading-status'),
             gameContainer: document.getElementById('game-container'),
+
+            // Main Menu
+            mainMenu: document.getElementById('main-menu'),
+            startMatchBtn: document.getElementById('start-match-btn'),
 
             // Controls
             speedControl: document.getElementById('speed-control'),
@@ -122,6 +127,12 @@ export class UI {
      * Set up event listeners
      */
     setupEventListeners() {
+        if (this.elements.startMatchBtn) {
+            this.elements.startMatchBtn.addEventListener('click', () => {
+                if (this.onStartGame) this.onStartGame();
+            });
+        }
+
         this.elements.bowlBtn.addEventListener('click', () => {
             if (this.onBowl) this.onBowl();
         });
@@ -163,6 +174,12 @@ export class UI {
     hideLoading() {
         if (this.elements.loadingScreen) {
             this.elements.loadingScreen.classList.add('hidden');
+        }
+    }
+
+    hideMenu() {
+        if (this.elements.mainMenu) {
+            this.elements.mainMenu.classList.add('hidden');
         }
     }
 
