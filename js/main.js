@@ -672,9 +672,6 @@ class CricketARGame {
         setTimeout(() => {
             this.state = 'batting';
         }, 100);
-
-        this.totalBalls++;
-        this.ui.updateScore(this.totalRuns, this.totalBalls);
     }
 
     /**
@@ -960,9 +957,6 @@ class CricketARGame {
      * End delivery and calculate result
      */
     endDelivery(outcome) {
-        // Prevent double counting if already handled by completeDelivery
-        if (this.state === 'result' || this.state === 'delivery_complete') return;
-
         this.state = 'result';
 
         let runs = 0;
