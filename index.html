@@ -70,11 +70,11 @@
                         <div class="card-header">
                             <i data-lucide="settings-2"></i> Bowling Config
                         </div>
-                        <div id="controls-panel" class="card-content">
+                        <div id="controls-panel-menu" class="card-content">
                             <!-- Injected Controls (Same IDs for compatibility) -->
                             <div class="control-row">
                                 <label>Speed</label>
-                                <select id="speed-control">
+                                <select id="speed-control-menu">
                                     <option value="slow">Slow (80k)</option>
                                     <option value="medium" selected>Medium (110k)</option>
                                     <option value="fast">Fast (140k)</option>
@@ -83,7 +83,7 @@
                             </div>
                             <div class="control-row">
                                 <label>Line</label>
-                                <select id="line-control">
+                                <select id="line-control-menu">
                                     <option value="outside-off">Outside Off</option>
                                     <option value="off">Off Stump</option>
                                     <option value="middle" selected>Middle</option>
@@ -92,7 +92,7 @@
                             </div>
                             <div class="control-row">
                                 <label>Length</label>
-                                <select id="length-control">
+                                <select id="length-control-menu">
                                     <option value="short">Short</option>
                                     <option value="good" selected>Good</option>
                                     <option value="full">Full</option>
@@ -102,9 +102,9 @@
                             <!-- Swing -->
                             <div class="control-row split">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="swing-enabled" checked /> Enable Swing
+                                    <input type="checkbox" id="swing-enabled-menu" checked /> Enable Swing
                                 </label>
-                                <select id="swing-type">
+                                <select id="swing-type-menu">
                                     <option value="outswing" selected>Outswing</option>
                                     <option value="inswing">Inswing</option>
                                     <option value="random">Random</option>
@@ -112,11 +112,8 @@
                             </div>
                             <div class="control-row split">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="auto-bowl" /> Auto Bowl
+                                    <input type="checkbox" id="auto-bowl-menu" /> Auto Bowl
                                 </label>
-                                <button id="random-btn" title="Random ball">🎲 Random</button>
-                                <button id="bowl-btn" class="primary-sm" style="display:none">Bowl</button>
-                                <!-- Hidden in menu -->
                             </div>
                         </div>
                     </div>
@@ -126,20 +123,20 @@
                         <div class="card-header">
                             <i data-lucide="eye"></i> Visual Guides
                         </div>
-                        <div id="visual-guides-panel" class="card-content grid-2">
+                        <div id="visual-guides-panel-menu" class="card-content grid-2">
                             <label class="guide-checkbox">
-                                <input type="checkbox" id="show-shadow" checked> <span>Shadows</span>
+                                <input type="checkbox" id="show-shadow-menu" checked> <span>Shadows</span>
                             </label>
                             <label class="guide-checkbox">
-                                <input type="checkbox" id="show-zone" checked> <span>Zones</span>
+                                <input type="checkbox" id="show-zone-menu" checked> <span>Zones</span>
                             </label>
                             <label class="guide-checkbox">
-                                <input type="checkbox" id="show-grip" checked> <span>Grip</span>
+                                <input type="checkbox" id="show-grip-menu" checked> <span>Grip</span>
                             </label>
                             <label class="guide-checkbox">
-                                <input type="checkbox" id="show-trail" checked> <span>Trails</span>
+                                <input type="checkbox" id="show-trail-menu" checked> <span>Trails</span>
                             </label>
-                            <button id="toggle-lights" class="light-btn">
+                            <button id="toggle-lights-menu" class="light-btn">
                                 <i data-lucide="lightbulb"></i> Lights: OFF
                             </button>
                         </div>
@@ -355,6 +352,77 @@
         </div>
 
         <!-- Controls Moved to Main Menu -->
+
+        <!-- Bowling Controls (In-Game HUD) -->
+        <div id="controls-panel">
+            <div class="control-group">
+                <label>Speed</label>
+                <select id="speed-control">
+                    <option value="slow">Slow (80 km/h)</option>
+                    <option value="medium" selected>Medium (110 km/h)</option>
+                    <option value="fast">Fast (140 km/h)</option>
+                    <option value="express">Express (150+ km/h)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Line</label>
+                <select id="line-control">
+                    <option value="outside-off">Outside Off</option>
+                    <option value="off">Off Stump</option>
+                    <option value="middle" selected>Middle</option>
+                    <option value="leg">Leg Stump</option>
+                    <option value="outside-leg">Outside Leg</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Length</label>
+                <select id="length-control">
+                    <option value="short">Short</option>
+                    <option value="short-of-good">Short of Good</option>
+                    <option value="good" selected>Good Length</option>
+                    <option value="full">Full</option>
+                    <option value="yorker">Yorker</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="auto-bowl" />
+                    Auto Bowl
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="swing-enabled" checked />
+                    Swing
+                </label>
+            </div>
+
+            <div class="control-group" id="swing-controls">
+                <select id="swing-type">
+                    <option value="none">No Swing</option>
+                    <option value="inswing">Inswing</option>
+                    <option value="outswing" selected>Outswing</option>
+                    <option value="random">Random</option>
+                </select>
+            </div>
+
+            <button id="random-btn" class="control-btn" title="Random delivery">🎲</button>
+            <button id="bowl-btn" class="control-btn primary">🏏 Bowl</button>
+        </div>
+
+        <!-- Visual Guides Panel (In-Game HUD) -->
+        <div id="visual-guides-panel">
+            <div class="guide-title">Visual Guides</div>
+            <label class="guide-checkbox"><input type="checkbox" id="show-shadow" checked> <span>Shadow</span></label>
+            <label class="guide-checkbox"><input type="checkbox" id="show-zone" checked> <span>Zone</span></label>
+            <label class="guide-checkbox"><input type="checkbox" id="show-grip" checked> <span>Grip</span></label>
+            <label class="guide-checkbox"><input type="checkbox" id="show-trail" checked> <span>Trail</span></label>
+            <button id="toggle-lights" class="control-btn" style="margin-top: 10px; width: 100%;">💡 Lights</button>
+        </div>
 
         <!-- Score Display -->
         <div id="score-display">

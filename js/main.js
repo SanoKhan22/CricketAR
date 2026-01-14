@@ -222,11 +222,27 @@ class CricketARGame {
         });
 
         // Stadium lights toggle
-        document.getElementById('toggle-lights').addEventListener('click', () => {
+        // Stadium lights toggle (Sync HUD and Menu)
+        const toggleLights = () => {
             const isNight = this.renderer.toggleStadiumLights();
-            const btn = document.getElementById('toggle-lights');
-            btn.textContent = isNight ? '🌙 Lights: ON' : '💡 Lights: OFF';
-        });
+            const text = isNight ? '🌙 Lights: ON' : '💡 Lights: OFF';
+
+            // Update HUD btn
+            const btnHud = document.getElementById('toggle-lights');
+            if (btnHud) btnHud.textContent = text;
+
+            // Update Menu btn
+            const btnMenu = document.getElementById('toggle-lights-menu');
+            if (btnMenu) {
+                btnMenu.innerHTML = `<i data-lucide="lightbulb"></i> ${text}`;
+                if (window.lucide) window.lucide.createIcons();
+            }
+        };
+
+        const lBtn1 = document.getElementById('toggle-lights');
+        const lBtn2 = document.getElementById('toggle-lights-menu');
+        if (lBtn1) lBtn1.addEventListener('click', toggleLights);
+        if (lBtn2) lBtn2.addEventListener('click', toggleLights);
 
         console.log('Hit controls initialized: Hand tracking enabled');
     }

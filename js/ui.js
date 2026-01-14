@@ -137,12 +137,73 @@ export class UI {
             });
         }
 
-        this.elements.bowlBtn.addEventListener('click', () => {
-            if (this.onBowl) this.onBowl();
+        // Bowl Button (Only exists in HUD usually, but kept generally)
+        if (this.elements.bowlBtn) {
+            this.elements.bowlBtn.addEventListener('click', () => {
+                if (this.onBowl) this.onBowl();
+            });
+        }
+
+        if (this.elements.randomBtn) {
+            this.elements.randomBtn.addEventListener('click', () => {
+                if (this.onRandom) this.onRandom();
+            });
+        }
+
+        // --- Synced Controls (HUD <-> Menu) ---
+
+        // Helper to bind dual controls
+        const bindSync = (hudId, menuId, type, callback) => {
+            const h = document.getElementById(hudId);
+            const m = document.getElementById(menuId);
+            const handler = (e) => {
+                const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                // Sync to other
+                if (e.target === h && m) { m.type === 'checkbox' ? m.checked = val : m.value = val; }
+                if (e.target === m && h) { h.type === 'checkbox' ? h.checked = val : h.value = val; }
+                // Logic
+                if (callback) callback(e);
+            };
+            if (h) h.addEventListener(type, handler);
+            if (m) m.addEventListener(type, handler);
+        };
+
+        // Speed, Line, Length (No logic needed, just read on bowl)
+        bindSync('speed-control', 'speed-control-menu', 'change', null);
+        bindSync('line-control', 'line-control-menu', 'change', null);
+        bindSync('length-control', 'length-control-menu', 'change', null);
+
+        // Auto Bowl
+        bindSync('auto-bowl', 'auto-bowl-menu', 'change', () => {
+            // Logic handled by isAutoBowlEnabled checking the HUD element
         });
 
-        this.elements.randomBtn.addEventListener('click', () => {
-            if (this.onRandom) this.onRandom();
+        // Swing Enabled
+        bindSync('swing-enabled', 'swing-enabled-menu', 'change', (e) => {
+            const enabled = e.target.checked;
+            // Update UI visibility in both places
+            const hudG = document.getElementById('swing-controls');
+            // Menu might not have a separate div, inputs are always visible or logic hidden
+            if (hudG) hudG.style.display = enabled ? 'block' : 'none';
+        });
+
+        // Swing Type
+        bindSync('swing-type', 'swing-type-menu', 'change', null);
+
+        // Visual Guides
+        bindSync('show-shadow', 'show-shadow-menu', 'change', null);
+        bindSync('show-zone', 'show-zone-menu', 'change', null);
+        bindSync('show-grip', 'show-grip-menu', 'change', null);
+        bindSync('show-trail', 'show-trail-menu', 'change', null);
+
+        // Toggle Lights
+        bindSync('toggle-lights', 'toggle-lights-menu', 'click', (e) => {
+            // Logic handled in main.js usually? No, it was inline?
+            // Need to check where toggle lights logic is.
+            // Usually it's bound in main.js. But ui.js handles it?
+            // If main.js binds it separately, we need to be careful.
+            // Currently main.js uses 'toggle-lights' ID.
+            // We need to trigger the logic.
         });
 
         if (this.elements.playAgainBtn) {
