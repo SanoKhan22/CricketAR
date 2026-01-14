@@ -858,6 +858,7 @@ class CricketARGame {
     }
     /**
      * Handle ball hitting bat
+     * Applies exit velocity physics based on bat speed, zone, and timing
      */
     handleHit(collision) {
         if (this.hasHitThisDelivery) return;
@@ -865,27 +866,57 @@ class CricketARGame {
 
         console.log('💥 BAT CONTACT!');
 
-        // Visuals
-        if (collision.point) {
-            this.ui.showImpactEffect(collision.point.x, collision.point.y);
-        }
+        // Get shot type based on ball position (from batting.js)
+        const ballPos = this.physics.getBallPosition();
+        const shot = this.batting.calculateShot(ballPos);
 
-        // Physics: Apply force to ball
-        // The Batting class or Physics class should handle this
-        // But main.js orchestrates.
-        if (this.bat && this.bat.applyForceToBall) {
-            // If Bat class handles it
-            this.bat.applyForceToBall(collision, this.physics.ballBody);
-        } else {
-            // Fallback to Physics
-            this.physics.applyHitForce(collision);
-        }
+        // === DIRECTION CALCULATION ===
+        // Base direction from shot (straight, cover, pull, etc.)
+        // Add small variation from swing velocity if available
+        const hitDirection = {
+            x: shot.direction.x + (collision.swingVelocity ? (-collision.swingVelocity.x * 0.3) : 0),
+            y: shot.direction.y,
+            z: Math.max(shot.direction.z, 1.5) // Ensure forward
+        };
+
+        // Normalize direction vector
+        const mag = Math.sqrt(
+            hitDirection.x ** 2 +
+            hitDirection.y ** 2 +
+            hitDirection.z ** 2
+        );
+        hitDirection.x /= mag;
+        hitDirection.y /= mag;
+        hitDirection.z /= mag;
+
+        // === PHYSICS PARAMETERS ===
+        const batSpeed = collision.batSpeed || 5;
+        const zoneMultiplier = collision.zoneMultiplier || 1.0;
+        const deflection = collision.deflection || 0;
+        const timingMultiplier = collision.timingMultiplier || 1.0;
+        const timingQuality = collision.timingQuality || 'Good';
+        const bowlSpeed = this.currentBowlSpeed || 30;
+        const launchAngle = shot.launchAngle ?? 12;
+        const zoneName = collision.verticalZone || 'middle';
+
+        // APPLY PHYSICS HIT
+        this.physics.hit(hitDirection, batSpeed, zoneMultiplier, deflection, bowlSpeed, launchAngle, timingMultiplier, zoneName);
+
+        // Visual feedback
+        this.ui.showShotResult(`${collision.zone?.toUpperCase() || 'HIT'}! ${timingQuality} timing - ${batSpeed.toFixed(1)}m/s`);
+        this.ui.updateSwingSpeed(batSpeed);
+        this.deliveryComplete = false; // Ensure scoring waits for ball to land
+
+        // Show impact effect
+        const camPanel = document.getElementById('camera-panel');
+        this.ui.showImpactEffect(camPanel ? camPanel.clientWidth / 2 : 400, camPanel ? camPanel.clientHeight / 2 : 300);
 
         // Camera: Track ball
         if (this.renderer.controls && this.renderer.controls.zoomOutForBallTracking) {
-            const vel = this.physics.getBallVelocity();
-            this.renderer.controls.zoomOutForBallTracking(vel);
+            this.renderer.controls.zoomOutForBallTracking(hitDirection);
         }
+
+        console.log(`🏏 Shot: ${shot.name} → ${hitDirection.x.toFixed(2)}, ${hitDirection.y.toFixed(2)}, ${hitDirection.z.toFixed(2)}`);
     }
 
 
